@@ -8,9 +8,9 @@
 const InstallManager = (function () {
 
     let deferredPrompt = null;
-    let isInstalled    = false;
-    let isIOS          = false;
-    let bannerShown    = false;
+    let isInstalled = false;
+    let isIOS = false;
+    let bannerShown = false;
 
     /* ===== DETECT PLATFORM ===== */
     function detectPlatform() {
@@ -26,7 +26,7 @@ const InstallManager = (function () {
             isFirefox: /firefox/.test(ua),
             isMobile: /mobile|tablet/.test(ua),
             isPWA: window.matchMedia('(display-mode: standalone)').matches ||
-                   window.navigator.standalone === true
+                window.navigator.standalone === true
         };
     }
 
@@ -50,8 +50,8 @@ const InstallManager = (function () {
         if (existing) existing.remove();
 
         const platform = detectPlatform();
-        const banner   = document.createElement('div');
-        banner.id      = 'installBanner';
+        const banner = document.createElement('div');
+        banner.id = 'installBanner';
 
         banner.style.cssText = `
             position: fixed;
@@ -281,7 +281,7 @@ const InstallManager = (function () {
     function hideBanner(banner) {
         if (!banner) return;
         banner.style.transform = 'translateX(-50%) translateY(100px)';
-        banner.style.opacity   = '0';
+        banner.style.opacity = '0';
         setTimeout(() => {
             if (banner.parentNode) {
                 banner.parentNode.removeChild(banner);
