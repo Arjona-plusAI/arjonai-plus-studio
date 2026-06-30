@@ -4,13 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta name="description" content="Arjona AI Studio — Professional AI Image Editor">
+    <meta name="theme-color" content="#060b18">
     <title>Arjona AI Studio</title>
     <link rel="stylesheet" href="style.css">
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" 
+        content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Arjona AI">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <meta name="msapplication-TileImage" content="icons/icon-192.png">
@@ -19,1142 +22,1782 @@
 
 <body>
 
-    <canvas id="bgCanvas" style="display:none"></canvas>
-
-    <!-- ===== AI CHAT BOX — DRAGGABLE ===== -->
-    <div id="aiChatBox" class="ai-chat-box hidden">
-        <div class="ai-chat-drag-handle" id="aiChatDragHandle">
-            <div class="ai-drag-bar"></div>
+<!-- ===== SPLASH SCREEN ===== -->
+<div id="splashScreen" class="splash">
+    <div class="splash-inner">
+        <div class="splash-logo">
+            <span class="splash-letter">A</span>
         </div>
-        <canvas id="aiNebula" class="ai-nebula-canvas"></canvas>
-        <div class="ai-chat-head">
-            <span class="ai-mood-dot"></span>
-            <span class="ai-chat-title">Arjona <span class="ai-tag">+AI</span></span>
-            <button class="ai-chat-close" onclick="toggleAiChat()">✕</button>
+        <div class="splash-brand">
+            Arjona<span class="ai-tag">+AI</span>
         </div>
-        <div id="aiChatBody" class="ai-chat-body">
-            <div class="ai-msg ai-msg-bot">Hey! Arjona AI here 🚀 Ask me anything!</div>
+        <div class="splash-bar">
+            <div class="splash-fill" id="splashFill"></div>
         </div>
-        <div class="ai-typing" id="aiTyping" style="display:none">
-            <span class="typing-dot"></span>
-            <span class="typing-dot"></span>
-            <span class="typing-dot"></span>
-        </div>
-        <div class="ai-chat-input">
-            <input type="text" id="aiChatInput" placeholder="Ask AI..." onkeydown="if(event.key==='Enter')sendAiChat()">
-            <button class="ai-send-btn" onclick="sendAiChat()">↑</button>
-            <button class="ai-mic-btn" onclick="startAiVoice()" id="aiVoiceBtn">🎤</button>
+        <div class="splash-txt" id="splashTxt">
+            Loading...
         </div>
     </div>
+</div>
 
-    <!-- AI CHAT TOGGLE -->
-    <button id="aiChatToggle" class="ai-chat-toggle" onclick="toggleAiChat()">
-        <span class="ai-toggle-icon">✦</span>
-        <span class="ai-toggle-label">AI</span>
+<!-- ===== BG CANVAS ===== -->
+<canvas id="bgCanvas" style="display:none"></canvas>
+
+<!-- ===== AI CHAT BOX ===== -->
+<div id="aiChatBox" class="ai-chat-box hidden">
+    <div class="ai-chat-drag-handle" id="aiChatDragHandle">
+        <div class="ai-drag-bar"></div>
+    </div>
+    <canvas id="aiNebula" class="ai-nebula-canvas"></canvas>
+    <div class="ai-chat-head">
+        <span class="ai-mood-dot"></span>
+        <span class="ai-chat-title">
+            Arjona <span class="ai-tag">+AI</span>
+        </span>
+        <button class="ai-chat-close" 
+            onclick="toggleAiChat()">✕</button>
+    </div>
+    <div id="aiChatBody" class="ai-chat-body">
+        <div class="ai-msg ai-msg-bot">
+            Hey! Arjona AI here 🚀 Ask me anything!
+        </div>
+    </div>
+    <div class="ai-typing" id="aiTyping" style="display:none">
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+    </div>
+    <div class="ai-suggestions" id="aiSuggestions">
+        <button class="ai-chip"
+            onclick="quickAsk('Remove background')">
+            ✂ Remove BG
+        </button>
+        <button class="ai-chip"
+            onclick="quickAsk('Add cinematic effect')">
+            🎬 Cinema
+        </button>
+        <button class="ai-chip"
+            onclick="quickAsk('Make it professional')">
+            ✦ Pro Look
+        </button>
+    </div>
+    <div class="ai-chat-input">
+        <input type="text" 
+            id="aiChatInput" 
+            placeholder="Ask AI..."
+            onkeydown="if(event.key==='Enter')sendAiChat()"
+            autocomplete="off">
+        <button class="ai-send-btn" 
+            onclick="sendAiChat()">↑</button>
+        <button class="ai-mic-btn" 
+            onclick="startAiVoice()" 
+            id="aiVoiceBtn">🎤</button>
+    </div>
+</div>
+
+<!-- ===== DOWNLOAD APP SECTION ===== -->
+<div id="downloadOverlay" 
+    class="download-overlay" 
+    style="display:none"
+    onclick="if(event.target===this)closeDownload()">
+    <div class="download-box">
+        <div class="download-head">
+            <div class="download-logo">
+                <span>A</span>
+            </div>
+            <div class="download-title-wrap">
+                <h2>Get Arjona AI Studio</h2>
+                <p>Install as App — Free Forever!</p>
+            </div>
+            <button class="download-close" 
+                onclick="closeDownload()">✕</button>
+        </div>
+
+        <div class="download-body">
+            <!-- Android -->
+            <div class="download-card" 
+                onclick="installApp('android')">
+                <div class="dl-icon-wrap dl-android">
+                    <span>🤖</span>
+                </div>
+                <div class="dl-info">
+                    <div class="dl-title">Android</div>
+                    <div class="dl-sub">
+                        Chrome se direct install
+                    </div>
+                    <div class="dl-size">
+                        No download needed
+                    </div>
+                </div>
+                <div class="dl-btn">
+                    <span>⬇</span> Install
+                </div>
+            </div>
+
+            <!-- iPhone -->
+            <div class="download-card" 
+                onclick="installApp('ios')">
+                <div class="dl-icon-wrap dl-ios">
+                    <span>🍎</span>
+                </div>
+                <div class="dl-info">
+                    <div class="dl-title">iPhone / iPad</div>
+                    <div class="dl-sub">
+                        Safari se Add to Home Screen
+                    </div>
+                    <div class="dl-size">
+                        No App Store needed
+                    </div>
+                </div>
+                <div class="dl-btn">
+                    <span>📱</span> Guide
+                </div>
+            </div>
+
+            <!-- Desktop -->
+            <div class="download-card" 
+                onclick="installApp('desktop')">
+                <div class="dl-icon-wrap dl-windows">
+                    <span>💻</span>
+                </div>
+                <div class="dl-info">
+                    <div class="dl-title">Windows / Mac</div>
+                    <div class="dl-sub">
+                        Desktop app jaisi feel
+                    </div>
+                    <div class="dl-size">
+                        Chrome / Edge se install
+                    </div>
+                </div>
+                <div class="dl-btn">
+                    <span>⬇</span> Install
+                </div>
+            </div>
+
+            <!-- Web -->
+            <div class="download-card dl-card-web" 
+                onclick="closeDownload()">
+                <div class="dl-icon-wrap dl-web">
+                    <span>🌐</span>
+                </div>
+                <div class="dl-info">
+                    <div class="dl-title">Use in Browser</div>
+                    <div class="dl-sub">
+                        No install — use directly
+                    </div>
+                    <div class="dl-size">
+                        Works everywhere
+                    </div>
+                </div>
+                <div class="dl-btn dl-btn-web">
+                    <span>→</span> Open
+                </div>
+            </div>
+        </div>
+
+        <div class="download-footer">
+            <div class="dl-features">
+                <span>✅ No Play Store</span>
+                <span>✅ No App Store</span>
+                <span>✅ 100% Free</span>
+                <span>✅ No Ads</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== AI CHAT TOGGLE ===== -->
+<button id="aiChatToggle" 
+    class="ai-chat-toggle" 
+    onclick="toggleAiChat()">
+    <span class="ai-toggle-icon">✦</span>
+    <span class="ai-toggle-label">AI</span>
+</button>
+
+<!-- ===== CORNER HANDLES ===== -->
+<div id="rhNW" class="corner-handle nw" style="display:none"></div>
+<div id="rhNE" class="corner-handle ne" style="display:none"></div>
+<div id="rhSW" class="corner-handle sw" style="display:none"></div>
+<div id="rhSE" class="corner-handle se" style="display:none"></div>
+
+<!-- SEL BAR -->
+<div id="selBar" class="sel-bar" style="display:none"></div>
+
+<!-- ===== HELP MODAL ===== -->
+<div id="helpModal" 
+    class="modal-overlay" 
+    style="display:none"
+    onclick="if(event.target===this)closeHelp()">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>Arjona <span class="ai-tag">+AI</span> Help</h2>
+            <button class="modal-x" 
+                onclick="closeHelp()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="help-card">
+                <div class="help-icon">🚀</div>
+                <div>
+                    <h3>Quick Start</h3>
+                    <p>Upload image or add text. 
+                       Use AI Generator. Export HD PNG.</p>
+                </div>
+            </div>
+            <div class="help-card">
+                <div class="help-icon">⌨️</div>
+                <div>
+                    <h3>Shortcuts</h3>
+                    <p>Ctrl+Z Undo · Ctrl+D Dup · 
+                       Del Delete · Arrows Move · 
+                       Ctrl+S Export · Ctrl+T Text</p>
+                </div>
+            </div>
+            <div class="help-card">
+                <div class="help-icon">📱</div>
+                <div>
+                    <h3>Mobile</h3>
+                    <p>Tap to select · Drag to move · 
+                       Pinch to resize · Swipe panels up</p>
+                </div>
+            </div>
+            <div class="help-card">
+                <div class="help-icon">✦</div>
+                <div>
+                    <h3>AI Features</h3>
+                    <p>Generate backgrounds · Remove BG · 
+                       AI chat assistant · Voice commands</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== PC HEADER ===== -->
+<header class="topbar">
+    <div class="tb-l">
+        <div class="logo">
+            <span class="logo-letter">A</span>
+        </div>
+        <span class="brand">
+            Arjona<span class="ai-tag">+AI</span>
+        </span>
+    </div>
+
+    <div class="tb-desk">
+        <select class="tb-sel" 
+            onchange="var s=this.value.split('x');
+            setupC(parseInt(s[0]),parseInt(s[1]))">
+            <option value="1280x720">1280×720 HD</option>
+            <option value="1080x1080">1080×1080 Square</option>
+            <option value="720x1280">720×1280 Portrait</option>
+            <option value="1920x1080">1920×1080 FHD</option>
+        </select>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" 
+            onclick="triggerUndo()" 
+            title="Undo (Ctrl+Z)">
+            <span class="tb-icon">↩</span>Undo
+        </button>
+        <button class="tb-btn" 
+            onclick="triggerRedo()" 
+            title="Redo">
+            <span class="tb-icon">↪</span>Redo
+        </button>
+        <button class="tb-btn tb-btn-del" 
+            onclick="layerOp('del')" 
+            title="Delete">
+            <span class="tb-icon">🗑</span>Del
+        </button>
+        <div class="tb-sep"></div>
+        <button class="tb-btn" 
+            onclick="toggleTTS()" 
+            id="ttsBtn">
+            <span class="tb-icon">🔊</span>
+            <span id="ttsBtnTxt">Voice</span>
+        </button>
+        <button class="tb-btn" onclick="openHelp()">
+            <span class="tb-icon">?</span>Help
+        </button>
+        <button class="tb-btn tb-btn-del" 
+            onclick="resetAll()">
+            <span class="tb-icon">⟳</span>Reset
+        </button>
+    </div>
+
+    <div class="tb-r">
+        <button class="theme-toggle" 
+            onclick="toggleTheme()" 
+            id="themeToggle">
+            <span id="themeIcon">🌙</span>
+        </button>
+        <button class="btn-download" 
+            onclick="openDownload()" 
+            title="Download App">
+            <span>⬇</span>
+            <span>App</span>
+        </button>
+        <button class="btn-export" onclick="exportHD()">
+            <span>↑</span> Export
+        </button>
+        <button class="mob-menu-btn" 
+            id="mobMenuBtn" 
+            onclick="toggleMobMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+    </div>
+</header>
+
+<!-- ===== MOBILE MENU ===== -->
+<div id="mobMenuOverlay" 
+    class="mob-menu-overlay" 
+    onclick="closeMobMenu()"></div>
+
+<div id="mobMenuDrawer" class="mob-menu-drawer">
+    <div class="mob-menu-head">
+        <div class="logo" 
+            style="width:28px;height:28px;font-size:13px">
+            A
+        </div>
+        <span style="font-weight:800;font-size:13px">
+            Arjona <span class="ai-tag">+AI</span>
+        </span>
+    </div>
+
+    <button class="mob-menu-item" 
+        onclick="toggleTTS();closeMobMenu()">
+        <span class="mmi-icon">🔊</span> Toggle Voice
+    </button>
+    <button class="mob-menu-item" 
+        onclick="openHelp();closeMobMenu()">
+        <span class="mmi-icon">?</span> Help & Shortcuts
+    </button>
+    <button class="mob-menu-item"
+        onclick="openBottomSheet(
+            document.querySelector('[data-sheet=sheetHist]'),
+            'sheetHist');closeMobMenu()">
+        <span class="mmi-icon">🕐</span> History
+    </button>
+    <button class="mob-menu-item" 
+        onclick="toggleTheme();closeMobMenu()">
+        <span class="mmi-icon">🌙</span> Toggle Theme
     </button>
 
-    <!-- CORNER HANDLES -->
-    <div id="rhNW" class="corner-handle nw" style="display:none"></div>
-    <div id="rhNE" class="corner-handle ne" style="display:none"></div>
-    <div id="rhSW" class="corner-handle sw" style="display:none"></div>
-    <div id="rhSE" class="corner-handle se" style="display:none"></div>
+    <div class="mob-menu-sep"></div>
 
-    <!-- SEL BAR hidden -->
-    <div id="selBar" class="sel-bar" style="display:none"></div>
+    <!-- Download App -->
+    <button class="mob-menu-item mob-menu-download"
+        onclick="openDownload();closeMobMenu()">
+        <span class="mmi-icon">⬇</span>
+        Download App
+    </button>
 
-    <!-- HELP MODAL -->
-    <div id="helpModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeHelp()">
-        <div class="modal-box">
-            <div class="modal-head">
-                <h2>Arjona <span class="ai-tag">+AI</span> Help</h2>
-                <button class="modal-x" onclick="closeHelp()">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="help-card">
-                    <div class="help-icon">🚀</div>
-                    <div>
-                        <h3>Quick Start</h3>
-                        <p>Upload image or add text. Use AI Generator. Export HD PNG.</p>
-                    </div>
-                </div>
-                <div class="help-card">
-                    <div class="help-icon">⌨️</div>
-                    <div>
-                        <h3>Shortcuts</h3>
-                        <p>Ctrl+Z Undo · Ctrl+D Dup · Del Delete · Arrows Move · Ctrl+S Export</p>
-                    </div>
-                </div>
-                <div class="help-card">
-                    <div class="help-icon">📱</div>
-                    <div>
-                        <h3>Mobile</h3>
-                        <p>Tap to select · Drag to move · Pinch to resize · Swipe panels up</p>
-                    </div>
-                </div>
-                <div class="help-card">
-                    <div class="help-icon">✦</div>
-                    <div>
-                        <h3>AI Features</h3>
-                        <p>Generate backgrounds · Remove BG · AI chat assistant · Voice commands</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- Export -->
+    <button class="mob-menu-item mob-menu-export"
+        onclick="exportHD();closeMobMenu()">
+        <span class="mmi-icon">↑</span>
+        Export PNG
+    </button>
+
+    <div class="mob-menu-sep"></div>
+
+    <!-- Reset -->
+    <button class="mob-menu-item mob-menu-danger" 
+        onclick="resetAll();closeMobMenu()">
+        <span class="mmi-icon">⟳</span> Reset All
+    </button>
+</div>
+
+<!-- ===== MOBILE TOP BAR ===== -->
+<div class="mob-top-bar" id="mobTopBar">
+    <div class="mob-top-inner">
+        <input type="text" 
+            id="mobAiPrompt"
+            placeholder="✦ Describe your AI scene..." 
+            class="mob-ai-input">
+        <select id="mobAiStyle" class="mob-ai-select">
+            <option value="">Style</option>
+            <option value=", photorealistic, 8k">Photo</option>
+            <option value=", cinematic lighting">Cinema</option>
+            <option value=", digital art">Art</option>
+            <option value=", anime style">Anime</option>
+            <option value=", 3d render">3D</option>
+        </select>
+        <button class="mob-gen-btn" 
+            onclick="generateAIMobile()">
+            ✦ Gen
+        </button>
+        <label class="mob-upload-btn">
+            📁
+            <input type="file" 
+                accept="image/*" 
+                onchange="addImg(event)" 
+                hidden>
+        </label>
     </div>
+    <div class="mob-canvas-size-row">
+        <span class="mob-cs-label">Canvas</span>
+        <button class="mob-cs-btn active" 
+            onclick="mobSetSize(this,1280,720)">HD</button>
+        <button class="mob-cs-btn" 
+            onclick="mobSetSize(this,1080,1080)">1:1</button>
+        <button class="mob-cs-btn" 
+            onclick="mobSetSize(this,720,1280)">9:16</button>
+        <button class="mob-cs-btn" 
+            onclick="mobSetSize(this,1920,1080)">FHD</button>
+        <div class="mob-cs-divider"></div>
+        <button class="mob-cs-ud" 
+            onclick="triggerUndo()" 
+            title="Undo">↩</button>
+        <button class="mob-cs-ud" 
+            onclick="triggerRedo()" 
+            title="Redo">↪</button>
+    </div>
+</div>
 
-    <!-- ===== PC HEADER ===== -->
-    <header class="topbar">
-        <div class="tb-l">
-            <div class="logo">
-                <span class="logo-letter">A</span>
+<!-- ===== MAIN LAYOUT ===== -->
+<div class="middle">
+
+    <!-- LEFT SIDEBAR PC -->
+    <aside class="left-sb" id="leftSidebar">
+        <div class="ai-box">
+            <div class="sb-section-title">
+                <span class="sb-title-icon">✦</span> 
+                AI Generate
             </div>
-            <span class="brand">Arjona<span class="ai-tag">+AI</span></span>
-        </div>
+            <div class="ai-pw">
+                <textarea id="aiPrompt" rows="3"
+                    placeholder="Describe your scene..." 
+                    class="inp"></textarea>
+                <button class="mic-btn" 
+                    onclick="doVoice(event)" 
+                    title="Voice input">🎤</button>
+            </div>
+            <div class="ai-opts">
+                <select id="aiMode" class="inp">
+                    <option value="bg">Background</option>
+                    <option value="layer">Layer</option>
+                </select>
+                <select id="aiStyle" class="inp">
+                    <option value="">Default</option>
+                    <option value=", photorealistic, 8k">
+                        Photo
+                    </option>
+                    <option value=", cinematic lighting">
+                        Cinema
+                    </option>
+                    <option value=", digital art">Art</option>
+                    <option value=", anime style">Anime</option>
+                    <option value=", 3d render">3D</option>
+                </select>
+            </div>
+            <button class="btn-primary-full" 
+                id="generateBtn"
+                onclick="generateAI()">
+                ✦ Generate AI Scene
+            </button>
 
-        <div class="tb-desk">
-            <select class="tb-sel" onchange="var s=this.value.split('x');setupC(parseInt(s[0]),parseInt(s[1]))">
-                <option value="1280x720">1280×720</option>
-                <option value="1080x1080">1080×1080</option>
-                <option value="720x1280">720×1280</option>
-                <option value="1920x1080">1920×1080</option>
-            </select>
-            <div class="tb-sep"></div>
-            <button class="tb-btn" onclick="triggerUndo()" title="Undo (Ctrl+Z)">
-                <span class="tb-icon">↩</span>Undo
-            </button>
-            <button class="tb-btn" onclick="triggerRedo()" title="Redo">
-                <span class="tb-icon">↪</span>Redo
-            </button>
-            <button class="tb-btn tb-btn-del" onclick="layerOp('del')" title="Delete">
-                <span class="tb-icon">🗑</span>Del
-            </button>
-            <div class="tb-sep"></div>
-            <button class="tb-btn" onclick="toggleTTS()" id="ttsBtn">
-                <span class="tb-icon">🔊</span><span id="ttsBtnTxt">Voice</span>
-            </button>
-            <button class="tb-btn" onclick="openHelp()">
-                <span class="tb-icon">?</span>Help
-            </button>
-            <button class="tb-btn tb-btn-del" onclick="resetAll()">
-                <span class="tb-icon">⟳</span>Reset
-            </button>
-        </div>
+            <div class="sb-divider"></div>
 
-        <div class="tb-r">
-            <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle">
-                <span id="themeIcon">🌙</span>
-            </button>
-            <button class="btn-export" onclick="exportHD()">
-                <span>↑</span> Export
-            </button>
-            <button class="mob-menu-btn" id="mobMenuBtn" onclick="toggleMobMenu()">
-                <span></span><span></span><span></span>
-            </button>
-        </div>
-    </header>
-
-    <!-- MOBILE MENU -->
-    <div id="mobMenuOverlay" class="mob-menu-overlay" onclick="closeMobMenu()"></div>
-    <div id="mobMenuDrawer" class="mob-menu-drawer">
-        <div class="mob-menu-head">
-            <div class="logo" style="width:28px;height:28px;font-size:13px">A</div>
-            <span style="font-weight:800;font-size:13px">Arjona <span class="ai-tag">+AI</span></span>
-        </div>
-        <button class="mob-menu-item" onclick="toggleTTS();closeMobMenu()">
-            <span class="mmi-icon">🔊</span> Toggle Voice
-        </button>
-        <button class="mob-menu-item" onclick="openHelp();closeMobMenu()">
-            <span class="mmi-icon">?</span> Help & Shortcuts
-        </button>
-        <button class="mob-menu-item"
-            onclick="openBottomSheet(document.querySelector('[data-sheet=sheetHist]'),'sheetHist');closeMobMenu()">
-            <span class="mmi-icon">🕐</span> History
-        </button>
-        <button class="mob-menu-item" onclick="exportHD();closeMobMenu()">
-            <span class="mmi-icon">↑</span> Export PNG
-        </button>
-        <button class="mob-menu-item" onclick="toggleTheme();closeMobMenu()">
-            <span class="mmi-icon">🌙</span> Toggle Theme
-        </button>
-        <div class="mob-menu-sep"></div>
-        <button class="mob-menu-item mob-menu-danger" onclick="resetAll();closeMobMenu()">
-            <span class="mmi-icon">⟳</span> Reset All
-        </button>
-    </div>
-
-    <!-- ===== MOBILE TOP BAR ===== -->
-    <div class="mob-top-bar" id="mobTopBar">
-        <div class="mob-top-inner">
-            <input type="text" id="mobAiPrompt" placeholder="✦ Describe your AI scene..." class="mob-ai-input">
-            <select id="mobAiStyle" class="mob-ai-select">
-                <option value="">Style</option>
-                <option value=", photorealistic, 8k">Photo</option>
-                <option value=", cinematic lighting">Cinema</option>
-                <option value=", digital art">Art</option>
-                <option value=", anime style">Anime</option>
-                <option value=", 3d render">3D</option>
-            </select>
-            <button class="mob-gen-btn" onclick="generateAIMobile()">
-                ✦ Gen
-            </button>
-            <label class="mob-upload-btn">
-                📁
-                <input type="file" accept="image/*" onchange="addImg(event)" hidden>
-            </label>
-        </div>
-        <div class="mob-canvas-size-row">
-            <span class="mob-cs-label">Canvas</span>
-            <button class="mob-cs-btn active" onclick="mobSetSize(this,1280,720)">HD</button>
-            <button class="mob-cs-btn" onclick="mobSetSize(this,1080,1080)">1:1</button>
-            <button class="mob-cs-btn" onclick="mobSetSize(this,720,1280)">9:16</button>
-            <button class="mob-cs-btn" onclick="mobSetSize(this,1920,1080)">FHD</button>
-            <div class="mob-cs-divider"></div>
-            <button class="mob-cs-ud" onclick="triggerUndo()" title="Undo">↩</button>
-            <button class="mob-cs-ud" onclick="triggerRedo()" title="Redo">↪</button>
-        </div>
-    </div>
-
-    <!-- ===== MAIN LAYOUT ===== -->
-    <div class="middle">
-
-        <!-- LEFT SIDEBAR PC -->
-        <aside class="left-sb" id="leftSidebar">
-            <div class="ai-box">
-                <!-- Nebula bg -->
-                <div class="sb-section-title">
-                    <span class="sb-title-icon">✦</span> AI Generate
-                </div>
-                <div class="ai-pw">
-                    <textarea id="aiPrompt" rows="3" placeholder="Describe your scene..." class="inp"></textarea>
-                    <button class="mic-btn" onclick="doVoice(event)" title="Voice input">🎤</button>
-                </div>
-                <div class="ai-opts">
-                    <select id="aiMode" class="inp">
-                        <option value="bg">Background</option>
-                        <option value="layer">Layer</option>
-                    </select>
-                    <select id="aiStyle" class="inp">
-                        <option value="">Default</option>
-                        <option value=", photorealistic, 8k">Photo</option>
-                        <option value=", cinematic lighting">Cinema</option>
-                        <option value=", digital art">Art</option>
-                        <option value=", anime style">Anime</option>
-                        <option value=", 3d render">3D</option>
-                    </select>
-                </div>
-                <button class="btn-primary-full" onclick="generateAI()">
-                    ✦ Generate AI Scene
+            <div class="sb-section-title">
+                <span class="sb-title-icon">✂</span> 
+                BG Removal
+            </div>
+            <div class="bg-remove-grid">
+                <button class="bg-rm-btn" 
+                    onclick="bgRemove('color')">
+                    <span>🎨</span>Color
                 </button>
+                <button class="bg-rm-btn" 
+                    onclick="bgRemove('edge')">
+                    <span>⚡</span>Edge
+                </button>
+                <button class="bg-rm-btn" 
+                    onclick="bgRemove('bright')">
+                    <span>☀</span>Bright
+                </button>
+                <button class="bg-rm-btn" 
+                    onclick="bgRemove('smart')">
+                    <span>✦</span>Smart
+                </button>
+            </div>
+            <div class="sld">
+                <label>Tolerance</label>
+                <input type="range" 
+                    id="sl-tol" 
+                    min="10" max="120" value="50"
+                    oninput="document.getElementById(
+                        'v-tol').innerText=this.value">
+                <span id="v-tol">50</span>
+            </div>
 
-                <div class="sb-divider"></div>
+            <div class="sb-divider"></div>
 
-                <div class="sb-section-title">
-                    <span class="sb-title-icon">✂</span> BG Removal
+            <div class="sb-section-title">
+                <span class="sb-title-icon">⚡</span> 
+                Quick Tools
+            </div>
+            <div class="quick-tools-grid">
+                <button class="qt-btn" onclick="addText()">
+                    <span>T</span><small>Text</small>
+                </button>
+                <button class="qt-btn"
+                    onclick="document.getElementById(
+                        'qImg').click()">
+                    <span>📁</span><small>Upload</small>
+                </button>
+                <input type="file" 
+                    id="qImg" 
+                    accept="image/*"
+                    style="display:none" 
+                    onchange="addImg(event)">
+                <button class="qt-btn" 
+                    onclick="grayscale()">
+                    <span>◑</span><small>Gray</small>
+                </button>
+                <button class="qt-btn" 
+                    onclick="invertColors()">
+                    <span>⊙</span><small>Invert</small>
+                </button>
+                <button class="qt-btn" onclick="flipH()">
+                    <span>⇔</span><small>Flip</small>
+                </button>
+                <button class="qt-btn" onclick="exportHD()">
+                    <span>↑</span><small>Save</small>
+                </button>
+                <button class="qt-btn" 
+                    onclick="triggerUndo()">
+                    <span>↩</span><small>Undo</small>
+                </button>
+                <button class="qt-btn" 
+                    onclick="triggerRedo()">
+                    <span>↪</span><small>Redo</small>
+                </button>
+            </div>
+
+            <div class="log-bar">
+                <span class="log-dot"></span>
+                <p id="logTxt">Ready</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- RESIZE HANDLE -->
+    <div class="resize-handle resize-h" 
+        id="resizeLeft"></div>
+
+    <!-- CANVAS AREA -->
+    <main class="canvas-area" id="canvasArea">
+        <div class="cv-frame" id="cvBox">
+            <canvas id="mainCanvas"></canvas>
+            <div id="loader" class="ldr" style="display:none">
+                <div class="spin"></div>
+                <p id="ldrMsg">Generating...</p>
+            </div>
+            <!-- Drop hint -->
+            <div class="drop-hint" id="dropHint">
+                <div class="drop-hint-icon">📁</div>
+                <div class="drop-hint-txt">Drop image here</div>
+            </div>
+        </div>
+    </main>
+
+</div>
+
+<!-- ===== MOBILE BOTTOM BAR ===== -->
+<div class="mob-bottom-bar" id="mobBottomBar">
+    <div class="mob-resize-handle" 
+        id="mobResizeBottom"
+        ontouchstart="startMobResize(event,'bottom')"
+        onmousedown="startMobResize(event,'bottom')">
+        <div class="mob-resize-pill"></div>
+    </div>
+    <div class="mob-bottom-inner">
+        <div class="mob-bottom-scroll">
+            <button class="mob-bar-btn active" 
+                data-sheet="sheetLib"
+                onclick="openBottomSheet(this,'sheetLib')">
+                <span class="mbb-icon">⊞</span>
+                <span class="mbb-label">Layers</span>
+            </button>
+            <button class="mob-bar-btn" 
+                data-sheet="sheetTrans"
+                onclick="openBottomSheet(this,'sheetTrans')">
+                <span class="mbb-icon">⤡</span>
+                <span class="mbb-label">Move</span>
+            </button>
+            <button class="mob-bar-btn" 
+                data-sheet="sheetText"
+                onclick="openBottomSheet(this,'sheetText')">
+                <span class="mbb-icon">T</span>
+                <span class="mbb-label">Type</span>
+            </button>
+            <button class="mob-bar-btn" 
+                data-sheet="sheetFx"
+                onclick="openBottomSheet(this,'sheetFx')">
+                <span class="mbb-icon">✨</span>
+                <span class="mbb-label">FX</span>
+            </button>
+            <button class="mob-bar-btn" 
+                data-sheet="sheetMask"
+                onclick="openBottomSheet(this,'sheetMask')">
+                <span class="mbb-icon">✂</span>
+                <span class="mbb-label">Mask</span>
+            </button>
+            <button class="mob-bar-btn" 
+                data-sheet="sheetGrade"
+                onclick="openBottomSheet(this,'sheetGrade')">
+                <span class="mbb-icon">◐</span>
+                <span class="mbb-label">Grade</span>
+            </button>
+            <button class="mob-bar-btn" 
+                data-sheet="sheetHist"
+                onclick="openBottomSheet(this,'sheetHist')">
+                <span class="mbb-icon">🕐</span>
+                <span class="mbb-label">Hist</span>
+            </button>
+        </div>
+        <button class="mob-del-btn" 
+            onclick="layerOp('del')" 
+            title="Delete">
+            <span class="mob-del-icon">🗑</span>
+            <span class="mob-del-label">Del</span>
+        </button>
+    </div>
+</div>
+
+<!-- ===== MOBILE ACTION BUTTONS ===== -->
+<div class="mob-action-bar" id="mobActionBar">
+    <div class="mob-action-btn mob-action-upload">
+        <label class="mob-action-inner">
+            <span class="mob-action-icon">📁</span>
+            <span class="mob-action-label">Upload</span>
+            <input type="file" 
+                accept="image/*" 
+                onchange="addImg(event)" 
+                hidden>
+        </label>
+    </div>
+    <div class="mob-action-btn mob-action-ai" 
+        onclick="toggleAiChat()">
+        <div class="mob-action-inner">
+            <span class="mob-action-icon">✦</span>
+            <span class="mob-action-label">AI</span>
+        </div>
+    </div>
+    <div class="mob-action-btn mob-action-export" 
+        onclick="exportHD()">
+        <div class="mob-action-inner">
+            <span class="mob-action-icon">↑</span>
+            <span class="mob-action-label">Export</span>
+        </div>
+    </div>
+</div>
+
+<!-- SHEETS OVERLAY -->
+<div class="mob-sheet-overlay" 
+    id="mobSheetOverlay"
+    onclick="closeBottomSheet()"></div>
+
+<!-- ===== SHEET: Library ===== -->
+<div class="mob-sheet" id="sheetLib">
+    <div class="mob-sheet-handle"
+        ontouchstart="sheetDragStart(event)"
+        ontouchmove="sheetDragMove(event)"
+        ontouchend="sheetDragEnd()">
+        <div class="mob-sheet-bar"></div>
+    </div>
+    <div class="mob-sheet-body">
+        <div class="mob-sheet-header">
+            <div class="mob-sheet-title">Layers</div>
+            <div class="sel-info">
+                Selected: <b id="selLbl">None</b>
+            </div>
+        </div>
+        <div class="sheet-btn-group">
+            <button class="sheet-action-btn" 
+                onclick="layerOp('front')">
+                <span>⬆</span> Front
+            </button>
+            <button class="sheet-action-btn" 
+                onclick="layerOp('back')">
+                <span>⬇</span> Back
+            </button>
+            <button class="sheet-action-btn" 
+                onclick="layerOp('dup')">
+                <span>⧉</span> Dup
+            </button>
+        </div>
+        <div class="sheet-btn-group">
+            <button class="sheet-action-btn" 
+                onclick="alignEl('l')">⇤ Left</button>
+            <button class="sheet-action-btn" 
+                onclick="alignEl('c')">⇔ Center</button>
+            <button class="sheet-action-btn" 
+                onclick="alignEl('r')">⇥ Right</button>
+            <button class="sheet-action-btn" 
+                onclick="alignEl('m')">⇕ Mid</button>
+        </div>
+
+        <div class="sheet-section-title">Background</div>
+        <div class="sheet-bg-row">
+            <div class="cr">
+                <label>Color</label>
+                <input type="color" 
+                    id="mobBgSC" value="#0a0f1e">
+            </div>
+            <button class="sheet-action-btn" 
+                onclick="applyMobBgSolid()">Apply</button>
+            <button class="sheet-action-btn sheet-danger-btn" 
+                onclick="clearBg()">Reset</button>
+        </div>
+
+        <div class="sheet-section-title">Presets</div>
+        <div class="sw-grid-mob">
+            <button class="sw"
+                style="background:linear-gradient(
+                    135deg,#667eea,#764ba2)"
+                onclick="preBg('#667eea','#764ba2')"></button>
+            <button class="sw"
+                style="background:linear-gradient(
+                    135deg,#4facfe,#00f2fe)"
+                onclick="preBg('#4facfe','#00f2fe')"></button>
+            <button class="sw"
+                style="background:linear-gradient(
+                    135deg,#43e97b,#38f9d7)"
+                onclick="preBg('#43e97b','#38f9d7')"></button>
+            <button class="sw"
+                style="background:linear-gradient(
+                    135deg,#fa709a,#fee140)"
+                onclick="preBg('#fa709a','#fee140')"></button>
+            <button class="sw"
+                style="background:linear-gradient(
+                    135deg,#f093fb,#f5576c)"
+                onclick="preBg('#f093fb','#f5576c')"></button>
+            <button class="sw"
+                style="background:linear-gradient(
+                    135deg,#4481eb,#04befe)"
+                onclick="preBg('#4481eb','#04befe')"></button>
+            <button class="sw" 
+                style="background:#000"
+                onclick="preBg('#000','#000')"></button>
+            <button class="sw" 
+                style="background:#fff"
+                onclick="preBg('#fff','#fff')"></button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SHEET: Transform ===== -->
+<div class="mob-sheet" id="sheetTrans">
+    <div class="mob-sheet-handle"
+        ontouchstart="sheetDragStart(event)"
+        ontouchmove="sheetDragMove(event)"
+        ontouchend="sheetDragEnd()">
+        <div class="mob-sheet-bar"></div>
+    </div>
+    <div class="mob-sheet-body">
+        <div class="mob-sheet-header">
+            <div class="mob-sheet-title">Transform</div>
+        </div>
+        <div class="sheet-slider-group">
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Scale</label>
+                    <span id="mob-v-sc">100%</span>
                 </div>
-                <div class="bg-remove-grid">
-                    <button class="bg-rm-btn" onclick="bgRemove('color')">
-                        <span>🎨</span>Color
+                <input type="range" 
+                    id="mob-sl-sc" 
+                    min="10" max="300" value="100"
+                    oninput="setProp('scale',this.value)">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Rotate</label>
+                    <span id="mob-v-rt">0°</span>
+                </div>
+                <input type="range" 
+                    id="mob-sl-rt" 
+                    min="0" max="360" value="0"
+                    oninput="setProp('rotate',this.value)">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Opacity</label>
+                    <span id="mob-v-op">100%</span>
+                </div>
+                <input type="range" 
+                    id="mob-sl-op" 
+                    min="0" max="100" value="100"
+                    oninput="setProp('opacity',this.value)">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SHEET: Text ===== -->
+<div class="mob-sheet" id="sheetText">
+    <div class="mob-sheet-handle"
+        ontouchstart="sheetDragStart(event)"
+        ontouchmove="sheetDragMove(event)"
+        ontouchend="sheetDragEnd()">
+        <div class="mob-sheet-bar"></div>
+    </div>
+    <div class="mob-sheet-body">
+        <div class="mob-sheet-header">
+            <div class="mob-sheet-title">Typography</div>
+            <button class="sheet-add-btn" 
+                onclick="addText()">+ Add Text</button>
+        </div>
+        <input type="text" 
+            id="mobTxtIn" 
+            placeholder="Type your text here..."
+            oninput="setTxt(this.value)" 
+            class="sheet-text-input">
+        <div class="sheet-row">
+            <div class="sheet-color-pick">
+                <label>Color</label>
+                <input type="color" 
+                    id="mobTxtCol" 
+                    value="#00f2fe"
+                    onchange="setProp('color',this.value)">
+            </div>
+            <select id="mobFontSel" 
+                onchange="setProp('font',this.value)"
+                class="sheet-select">
+                <option value="Arial">Arial</option>
+                <option value="Impact">Impact</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Courier New">Courier</option>
+            </select>
+        </div>
+        <div class="sheet-slider-group">
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Spacing</label><span>0px</span>
+                </div>
+                <input type="range" 
+                    min="-5" max="30" value="0"
+                    oninput="setProp('charSpacing',this.value)">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Curve</label><span>0°</span>
+                </div>
+                <input type="range" 
+                    min="-180" max="180" value="0"
+                    oninput="setProp('curve',this.value)">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SHEET: FX ===== -->
+<div class="mob-sheet" id="sheetFx">
+    <div class="mob-sheet-handle"
+        ontouchstart="sheetDragStart(event)"
+        ontouchmove="sheetDragMove(event)"
+        ontouchend="sheetDragEnd()">
+        <div class="mob-sheet-bar"></div>
+    </div>
+    <div class="mob-sheet-body">
+        <div class="mob-sheet-header">
+            <div class="mob-sheet-title">Effects</div>
+        </div>
+        <div class="sheet-fx-grid">
+            <div class="fx-item">
+                <input type="color" value="#000000"
+                    onchange="setProp('strokeColor',this.value)">
+                <div class="sheet-sld">
+                    <div class="sheet-sld-head">
+                        <label>Stroke</label><span>2px</span>
+                    </div>
+                    <input type="range" 
+                        min="0" max="15" value="2"
+                        oninput="setProp('stroke',this.value)">
+                </div>
+            </div>
+            <div class="fx-item">
+                <input type="color" value="#00f2fe"
+                    onchange="setProp('glowColor',this.value)">
+                <div class="sheet-sld">
+                    <div class="sheet-sld-head">
+                        <label>Glow</label><span>8px</span>
+                    </div>
+                    <input type="range" 
+                        min="0" max="40" value="8"
+                        oninput="setProp('glow',this.value)">
+                </div>
+            </div>
+            <div class="fx-item">
+                <input type="color" value="#1e293b"
+                    onchange="setProp('threeDColor',this.value)">
+                <div class="sheet-sld">
+                    <div class="sheet-sld-head">
+                        <label>3D Depth</label><span>0px</span>
+                    </div>
+                    <input type="range" 
+                        min="0" max="25" value="0"
+                        oninput="setProp('threeDDepth',this.value)">
+                </div>
+            </div>
+            <div class="fx-item">
+                <input type="color" value="#000000"
+                    onchange="setProp(
+                        'innerShadowColor',this.value)">
+                <div class="sheet-sld">
+                    <div class="sheet-sld-head">
+                        <label>Shadow</label><span>0px</span>
+                    </div>
+                    <input type="range" 
+                        min="0" max="20" value="0"
+                        oninput="setProp('innerShadow',this.value)">
+                </div>
+            </div>
+        </div>
+        <div class="sheet-slider-group">
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Emboss</label><span>0px</span>
+                </div>
+                <input type="range" 
+                    min="0" max="10" value="0"
+                    oninput="setProp('emboss',this.value)">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Reflection</label><span>0%</span>
+                </div>
+                <input type="range" 
+                    min="0" max="80" value="0"
+                    oninput="setProp('reflection',this.value)">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SHEET: Mask ===== -->
+<div class="mob-sheet" id="sheetMask">
+    <div class="mob-sheet-handle"
+        ontouchstart="sheetDragStart(event)"
+        ontouchmove="sheetDragMove(event)"
+        ontouchend="sheetDragEnd()">
+        <div class="mob-sheet-bar"></div>
+    </div>
+    <div class="mob-sheet-body">
+        <div class="mob-sheet-header">
+            <div class="mob-sheet-title">Mask &amp; Erase</div>
+        </div>
+        <div class="sheet-mode-row">
+            <button class="sheet-mode-btn active"
+                onclick="setMode('select',this)">
+                <span>↖</span> Select
+            </button>
+            <button class="sheet-mode-btn"
+                onclick="setMode('eraser',this)">
+                <span>◯</span> Erase
+            </button>
+            <button class="sheet-mode-btn"
+                onclick="setMode('mask',this)">
+                <span>▭</span> Mask
+            </button>
+        </div>
+        <div class="sheet-sld" style="margin:12px 0">
+            <div class="sheet-sld-head">
+                <label>Brush Size</label><span>25px</span>
+            </div>
+            <input type="range" 
+                min="5" max="100" value="25"
+                oninput="bSz=parseInt(this.value)">
+        </div>
+        <div class="sheet-btn-group">
+            <button class="sheet-action-btn" 
+                onclick="restMask()" style="flex:1">
+                ↺ Restore Mask
+            </button>
+        </div>
+        <div class="sheet-btn-group" style="margin-top:8px">
+            <button class="sheet-primary-btn" 
+                onclick="bgRemove('smart')" style="flex:1">
+                ✦ AI BG Remove
+            </button>
+        </div>
+        <div class="sheet-section-title" 
+            style="margin-top:12px">Manual BG Remove</div>
+        <div class="sheet-btn-group">
+            <button class="sheet-action-btn" 
+                onclick="bgRemove('color')">🎨 Color</button>
+            <button class="sheet-action-btn" 
+                onclick="bgRemove('edge')">⚡ Edge</button>
+            <button class="sheet-action-btn" 
+                onclick="bgRemove('bright')">☀ Bright</button>
+        </div>
+        <div class="sheet-sld" style="margin-top:8px">
+            <div class="sheet-sld-head">
+                <label>Tolerance</label>
+                <span id="mob-v-tol">50</span>
+            </div>
+            <input type="range" 
+                id="mob-sl-tol" 
+                min="10" max="120" value="50"
+                oninput="document.getElementById(
+                    'mob-v-tol').innerText=this.value;
+                document.getElementById(
+                    'sl-tol').value=this.value">
+        </div>
+    </div>
+</div>
+
+<!-- ===== SHEET: Grade ===== -->
+<div class="mob-sheet" id="sheetGrade">
+    <div class="mob-sheet-handle"
+        ontouchstart="sheetDragStart(event)"
+        ontouchmove="sheetDragMove(event)"
+        ontouchend="sheetDragEnd()">
+        <div class="mob-sheet-bar"></div>
+    </div>
+    <div class="mob-sheet-body">
+        <div class="mob-sheet-header">
+            <div class="mob-sheet-title">Grading</div>
+            <div class="sheet-grade-actions">
+                <button class="sheet-action-btn" 
+                    onclick="resetGrade()">Reset</button>
+                <button class="sheet-primary-btn" 
+                    onclick="applyGrade()">Apply</button>
+            </div>
+        </div>
+        <div class="sheet-slider-group">
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Brightness</label><span>0</span>
+                </div>
+                <input type="range" 
+                    id="mob-sg-br" 
+                    min="-100" max="100" value="0"
+                    oninput="liveG()">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Contrast</label><span>0</span>
+                </div>
+                <input type="range" 
+                    id="mob-sg-ct" 
+                    min="-100" max="100" value="0"
+                    oninput="liveG()">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Saturation</label><span>0</span>
+                </div>
+                <input type="range" 
+                    id="mob-sg-sa" 
+                    min="-100" max="100" value="0"
+                    oninput="liveG()">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Temperature</label><span>0</span>
+                </div>
+                <input type="range" 
+                    id="mob-sg-te" 
+                    min="-50" max="50" value="0"
+                    oninput="liveG()">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Vignette</label><span>0</span>
+                </div>
+                <input type="range" 
+                    id="mob-sg-vi" 
+                    min="0" max="100" value="0"
+                    oninput="liveG()">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Grain</label><span>0</span>
+                </div>
+                <input type="range" 
+                    id="mob-sg-gr" 
+                    min="0" max="50" value="0"
+                    oninput="liveG()">
+            </div>
+        </div>
+        <div class="sheet-section-title">Presets</div>
+        <div class="grade-preset-scroll">
+            <button class="grade-preset-btn" 
+                onclick="gradeP('cinematic')">
+                <span class="gp-thumb" 
+                    style="background:linear-gradient(
+                        135deg,#1a1a2e,#e94560)">
+                </span>Cinema
+            </button>
+            <button class="grade-preset-btn" 
+                onclick="gradeP('vintage')">
+                <span class="gp-thumb" 
+                    style="background:linear-gradient(
+                        135deg,#d4a574,#8b5e3c)">
+                </span>Vintage
+            </button>
+            <button class="grade-preset-btn" 
+                onclick="gradeP('warm')">
+                <span class="gp-thumb" 
+                    style="background:linear-gradient(
+                        135deg,#ff9a3c,#ff6b35)">
+                </span>Warm
+            </button>
+            <button class="grade-preset-btn" 
+                onclick="gradeP('cool')">
+                <span class="gp-thumb" 
+                    style="background:linear-gradient(
+                        135deg,#4facfe,#00f2fe)">
+                </span>Cool
+            </button>
+            <button class="grade-preset-btn" 
+                onclick="gradeP('noir')">
+                <span class="gp-thumb" 
+                    style="background:linear-gradient(
+                        135deg,#000,#333)">
+                </span>Noir
+            </button>
+            <button class="grade-preset-btn" 
+                onclick="gradeP('neon')">
+                <span class="gp-thumb" 
+                    style="background:linear-gradient(
+                        135deg,#f953c6,#b91d73)">
+                </span>Neon
+            </button>
+            <button class="grade-preset-btn" 
+                onclick="gradeP('golden')">
+                <span class="gp-thumb" 
+                    style="background:linear-gradient(
+                        135deg,#f7971e,#ffd200)">
+                </span>Golden
+            </button>
+            <button class="grade-preset-btn" 
+                onclick="gradeP('hdr')">
+                <span class="gp-thumb" 
+                    style="background:linear-gradient(
+                        135deg,#0f2027,#2c5364)">
+                </span>HDR
+            </button>
+        </div>
+        <div class="sheet-section-title">PixArt</div>
+        <div class="pixart-grid">
+            <button class="pixart-btn" 
+                onclick="pixelate(10)">
+                <span>⊞</span>Pixel
+            </button>
+            <button class="pixart-btn" 
+                onclick="applyBlur(4)">
+                <span>💧</span>Blur
+            </button>
+            <button class="pixart-btn" 
+                onclick="applySharpen()">
+                <span>⚡</span>Sharp
+            </button>
+            <button class="pixart-btn" 
+                onclick="grayscale()">
+                <span>◑</span>Gray
+            </button>
+            <button class="pixart-btn" 
+                onclick="posterize(4)">
+                <span>🎨</span>Poster
+            </button>
+            <button class="pixart-btn" 
+                onclick="edgeDetect()">
+                <span>⊙</span>Edge
+            </button>
+            <button class="pixart-btn" 
+                onclick="applyNoise(25)">
+                <span>∷</span>Noise
+            </button>
+            <button class="pixart-btn" 
+                onclick="invertColors()">
+                <span>⊘</span>Invert
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SHEET: History ===== -->
+<div class="mob-sheet" id="sheetHist">
+    <div class="mob-sheet-handle"
+        ontouchstart="sheetDragStart(event)"
+        ontouchmove="sheetDragMove(event)"
+        ontouchend="sheetDragEnd()">
+        <div class="mob-sheet-bar"></div>
+    </div>
+    <div class="mob-sheet-body">
+        <div class="mob-sheet-header">
+            <div class="mob-sheet-title">History</div>
+            <button class="sheet-action-btn" 
+                onclick="clearHistory()">Clear</button>
+        </div>
+        <div id="histList" class="hist-list">
+            <div class="hist-empty">No history yet</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== DESKTOP BOTTOM PANEL ===== -->
+<div class="resize-handle resize-v desk-only" 
+    id="resizeBottom"></div>
+
+<div class="bottom-panel desk-only" id="bottomPanel">
+    <div class="bp-tabs">
+        <button class="bp-tab active" 
+            data-p="bpLib" onclick="bpTab(this)">
+            ⊞ Library
+        </button>
+        <button class="bp-tab" 
+            data-p="bpTrans" onclick="bpTab(this)">
+            ⤡ Transform
+        </button>
+        <button class="bp-tab" 
+            data-p="bpText" onclick="bpTab(this)">
+            T Typography
+        </button>
+        <button class="bp-tab" 
+            data-p="bpFxMask" onclick="bpTab(this)">
+            ✨ FX+Mask
+        </button>
+        <button class="bp-tab" 
+            data-p="bpGrade" onclick="bpTab(this)">
+            ◐ Grade
+        </button>
+    </div>
+    <div class="bp-body">
+
+        <!-- Library -->
+        <div class="bp-pan active" id="bpLib">
+            <div class="bp-col">
+                <div class="bp-h">Layers</div>
+                <div class="upz">
+                    <input type="file" 
+                        accept="image/*" 
+                        onchange="addImg(event)">
+                    <span>📁 Upload Image</span>
+                </div>
+                <button class="btn-ghost-full" 
+                    onclick="addText()">
+                    T Add Text Layer
+                </button>
+                <div class="sel-info">
+                    Selected: <b id="selLblDesk">None</b>
+                </div>
+                <div class="act-row">
+                    <button onclick="layerOp('front')">
+                        ⬆ Front
                     </button>
-                    <button class="bg-rm-btn" onclick="bgRemove('edge')">
-                        <span>⚡</span>Edge
+                    <button onclick="layerOp('back')">
+                        ⬇ Back
                     </button>
-                    <button class="bg-rm-btn" onclick="bgRemove('bright')">
-                        <span>☀</span>Bright
+                    <button onclick="layerOp('dup')">
+                        ⧉ Dup
                     </button>
-                    <button class="bg-rm-btn" onclick="bgRemove('smart')">
-                        <span>✦</span>Smart
+                </div>
+                <div class="act-row">
+                    <button onclick="alignEl('l')">⇤ L</button>
+                    <button onclick="alignEl('c')">⇔ C</button>
+                    <button onclick="alignEl('r')">⇥ R</button>
+                    <button onclick="alignEl('m')">⇕ M</button>
+                </div>
+            </div>
+            <div class="bp-col">
+                <div class="bp-h">Background</div>
+                <div class="bg-tabs" id="bgTB">
+                    <button class="bgt active" 
+                        data-p="bgS" onclick="bgT(this)">
+                        Solid
                     </button>
+                    <button class="bgt" 
+                        data-p="bgG" onclick="bgT(this)">
+                        Gradient
+                    </button>
+                    <button class="bgt" 
+                        data-p="bgPt" onclick="bgT(this)">
+                        Pattern
+                    </button>
+                    <button class="bgt" 
+                        data-p="bgPr" onclick="bgT(this)">
+                        Presets
+                    </button>
+                </div>
+                <div id="bgPans">
+                    <div class="bgp active" id="bgS">
+                        <div class="cr">
+                            <label>Color</label>
+                            <input type="color" 
+                                id="bgSC" value="#0a0f1e">
+                        </div>
+                        <div class="act-row">
+                            <button onclick="setBg('solid')" 
+                                style="flex:1">Apply</button>
+                            <button class="act-d" 
+                                onclick="clearBg()" 
+                                style="flex:1">Reset</button>
+                        </div>
+                    </div>
+                    <div class="bgp" id="bgG">
+                        <div class="cr">
+                            <label>From</label>
+                            <input type="color" 
+                                id="bgG1" value="#00f2fe">
+                        </div>
+                        <div class="cr">
+                            <label>To</label>
+                            <input type="color" 
+                                id="bgG2" value="#7928ca">
+                        </div>
+                        <select id="bgGD" class="inp">
+                            <option value="tb">Vertical</option>
+                            <option value="lr">Horizontal</option>
+                            <option value="diag">Diagonal</option>
+                            <option value="rad">Radial</option>
+                        </select>
+                        <button class="btn-ghost-full" 
+                            onclick="setBg('grad')">
+                            Apply Gradient
+                        </button>
+                    </div>
+                    <div class="bgp" id="bgPt">
+                        <div class="pat-row">
+                            <button 
+                                onclick="setBg('pat','dots')">
+                                Dots
+                            </button>
+                            <button 
+                                onclick="setBg('pat','grid')">
+                                Grid
+                            </button>
+                            <button 
+                                onclick="setBg('pat','stripe')">
+                                Stripe
+                            </button>
+                            <button 
+                                onclick="setBg('pat','check')">
+                                Check
+                            </button>
+                            <button 
+                                onclick="setBg('pat','diamond')">
+                                Diamond
+                            </button>
+                            <button 
+                                onclick="setBg('pat','zigzag')">
+                                Zigzag
+                            </button>
+                        </div>
+                        <div class="cr">
+                            <label>Line</label>
+                            <input type="color" 
+                                id="bgPC" value="#00f2fe">
+                        </div>
+                        <div class="cr">
+                            <label>Base</label>
+                            <input type="color" 
+                                id="bgPB" value="#0a0f1e">
+                        </div>
+                    </div>
+                    <div class="bgp" id="bgPr">
+                        <div class="sw-grid">
+                            <button class="sw"
+                                style="background:linear-gradient(
+                                    135deg,#667eea,#764ba2)"
+                                onclick="preBg(
+                                    '#667eea','#764ba2')">
+                            </button>
+                            <button class="sw"
+                                style="background:linear-gradient(
+                                    135deg,#4facfe,#00f2fe)"
+                                onclick="preBg(
+                                    '#4facfe','#00f2fe')">
+                            </button>
+                            <button class="sw"
+                                style="background:linear-gradient(
+                                    135deg,#43e97b,#38f9d7)"
+                                onclick="preBg(
+                                    '#43e97b','#38f9d7')">
+                            </button>
+                            <button class="sw"
+                                style="background:linear-gradient(
+                                    135deg,#fa709a,#fee140)"
+                                onclick="preBg(
+                                    '#fa709a','#fee140')">
+                            </button>
+                            <button class="sw"
+                                style="background:linear-gradient(
+                                    135deg,#f093fb,#f5576c)"
+                                onclick="preBg(
+                                    '#f093fb','#f5576c')">
+                            </button>
+                            <button class="sw"
+                                style="background:linear-gradient(
+                                    135deg,#4481eb,#04befe)"
+                                onclick="preBg(
+                                    '#4481eb','#04befe')">
+                            </button>
+                            <button class="sw" 
+                                style="background:#000"
+                                onclick="preBg('#000','#000')">
+                            </button>
+                            <button class="sw" 
+                                style="background:#fff"
+                                onclick="preBg('#fff','#fff')">
+                            </button>
+                        </div>
+                        <button class="act-d" 
+                            onclick="clearBg()" 
+                            style="width:100%;margin-top:4px">
+                            Reset BG
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transform -->
+        <div class="bp-pan" id="bpTrans">
+            <div class="bp-col">
+                <div class="bp-h">Transform</div>
+                <div class="sld">
+                    <label>Scale</label>
+                    <input type="range" 
+                        id="sl-sc" 
+                        min="10" max="300" value="100"
+                        oninput="setProp('scale',this.value)">
+                    <span id="v-sc">100%</span>
                 </div>
                 <div class="sld">
-                    <label>Tolerance</label>
-                    <input type="range" id="sl-tol" min="10" max="120" value="50"
-                        oninput="document.getElementById('v-tol').innerText=this.value">
-                    <span id="v-tol">50</span>
+                    <label>Rotate</label>
+                    <input type="range" 
+                        id="sl-rt" 
+                        min="0" max="360" value="0"
+                        oninput="setProp('rotate',this.value)">
+                    <span id="v-rt">0°</span>
                 </div>
-
-                <div class="sb-divider"></div>
-
-                <div class="sb-section-title">
-                    <span class="sb-title-icon">⚡</span> Quick Tools
-                </div>
-                <div class="quick-tools-grid">
-                    <button class="qt-btn" onclick="addText()">
-                        <span>T</span><small>Text</small>
-                    </button>
-                    <button class="qt-btn" onclick="document.getElementById('qImg').click()">
-                        <span>📁</span><small>Upload</small>
-                    </button>
-                    <input type="file" id="qImg" accept="image/*" style="display:none" onchange="addImg(event)">
-                    <button class="qt-btn" onclick="grayscale()">
-                        <span>◑</span><small>Gray</small>
-                    </button>
-                    <button class="qt-btn" onclick="invertColors()">
-                        <span>⊙</span><small>Invert</small>
-                    </button>
-                    <button class="qt-btn" onclick="flipH()">
-                        <span>⇔</span><small>Flip</small>
-                    </button>
-                    <button class="qt-btn" onclick="exportHD()">
-                        <span>↑</span><small>Save</small>
-                    </button>
-                    <button class="qt-btn" onclick="triggerUndo()">
-                        <span>↩</span><small>Undo</small>
-                    </button>
-                    <button class="qt-btn" onclick="triggerRedo()">
-                        <span>↪</span><small>Redo</small>
-                    </button>
-                </div>
-
-                <div class="log-bar">
-                    <span class="log-dot"></span>
-                    <p id="logTxt">Ready</p>
+                <div class="sld">
+                    <label>Opacity</label>
+                    <input type="range" 
+                        id="sl-op" 
+                        min="0" max="100" value="100"
+                        oninput="setProp('opacity',this.value)">
+                    <span id="v-op">100%</span>
                 </div>
             </div>
-        </aside>
-
-        <!-- RESIZE HANDLE -->
-        <div class="resize-handle resize-h" id="resizeLeft"></div>
-
-        <!-- CANVAS AREA -->
-        <main class="canvas-area">
-            <div class="cv-frame" id="cvBox">
-                <canvas id="mainCanvas"></canvas>
-                <div id="loader" class="ldr" style="display:none">
-                    <div class="spin"></div>
-                    <p id="ldrMsg">Generating...</p>
-                </div>
-            </div>
-        </main>
-
-    </div>
-
-    <!-- ===== MOBILE BOTTOM BAR ===== -->
-    <div class="mob-bottom-bar" id="mobBottomBar">
-        <div class="mob-resize-handle" id="mobResizeBottom" ontouchstart="startMobResize(event,'bottom')"
-            onmousedown="startMobResize(event,'bottom')">
-            <div class="mob-resize-pill"></div>
         </div>
-        <div class="mob-bottom-inner">
-            <!-- Scrollable tabs -->
-            <div class="mob-bottom-scroll">
-                <button class="mob-bar-btn active" data-sheet="sheetLib" onclick="openBottomSheet(this,'sheetLib')">
-                    <span class="mbb-icon">⊞</span>
-                    <span class="mbb-label">Layers</span>
-                </button>
-                <button class="mob-bar-btn" data-sheet="sheetTrans" onclick="openBottomSheet(this,'sheetTrans')">
-                    <span class="mbb-icon">⤡</span>
-                    <span class="mbb-label">Move</span>
-                </button>
-                <button class="mob-bar-btn" data-sheet="sheetText" onclick="openBottomSheet(this,'sheetText')">
-                    <span class="mbb-icon">T</span>
-                    <span class="mbb-label">Type</span>
-                </button>
-                <button class="mob-bar-btn" data-sheet="sheetFx" onclick="openBottomSheet(this,'sheetFx')">
-                    <span class="mbb-icon">✨</span>
-                    <span class="mbb-label">FX</span>
-                </button>
-                <button class="mob-bar-btn" data-sheet="sheetMask" onclick="openBottomSheet(this,'sheetMask')">
-                    <span class="mbb-icon">✂</span>
-                    <span class="mbb-label">Mask</span>
-                </button>
-                <button class="mob-bar-btn" data-sheet="sheetGrade" onclick="openBottomSheet(this,'sheetGrade')">
-                    <span class="mbb-icon">◐</span>
-                    <span class="mbb-label">Grade</span>
-                </button>
-                <button class="mob-bar-btn" data-sheet="sheetHist" onclick="openBottomSheet(this,'sheetHist')">
-                    <span class="mbb-icon">🕐</span>
-                    <span class="mbb-label">Hist</span>
-                </button>
-            </div>
-            <!-- DEL stays same place -->
-            <button class="mob-del-btn" onclick="layerOp('del')" title="Delete">
-                <span class="mob-del-icon">🗑</span>
-                <span class="mob-del-label">Del</span>
-            </button>
-        </div>
-    </div>
 
-    <!-- ===== MOBILE 3 ACTION BUTTONS ===== -->
-    <div class="mob-action-bar" id="mobActionBar">
-        <div class="mob-action-btn mob-action-upload">
-            <label class="mob-action-inner">
-                <span class="mob-action-icon">📁</span>
-                <span class="mob-action-label">Upload</span>
-                <input type="file" accept="image/*" onchange="addImg(event)" hidden>
-            </label>
-        </div>
-        <div class="mob-action-btn mob-action-ai" onclick="toggleAiChat()">
-            <div class="mob-action-inner">
-                <span class="mob-action-icon">✦</span>
-                <span class="mob-action-label">AI</span>
-            </div>
-        </div>
-        <div class="mob-action-btn mob-action-export" onclick="exportHD()">
-            <div class="mob-action-inner">
-                <span class="mob-action-icon">↑</span>
-                <span class="mob-action-label">Export</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- SHEETS OVERLAY -->
-    <div class="mob-sheet-overlay" id="mobSheetOverlay" onclick="closeBottomSheet()"></div>
-
-    <!-- ===== SHEET: Library ===== -->
-    <div class="mob-sheet" id="sheetLib">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Layers</div>
-                <div class="sel-info">Selected: <b id="selLbl">None</b></div>
-            </div>
-
-            <div class="sheet-btn-group">
-                <button class="sheet-action-btn" onclick="layerOp('front')">
-                    <span>⬆</span> Front
+        <!-- Typography -->
+        <div class="bp-pan" id="bpText">
+            <div class="bp-col">
+                <div class="bp-h">Typography</div>
+                <button class="btn-primary-full" 
+                    onclick="addText()"
+                    style="margin-bottom:6px">
+                    T Add Text Layer
                 </button>
-                <button class="sheet-action-btn" onclick="layerOp('back')">
-                    <span>⬇</span> Back
-                </button>
-                <button class="sheet-action-btn" onclick="layerOp('dup')">
-                    <span>⧉</span> Dup
-                </button>
-            </div>
-
-            <div class="sheet-btn-group">
-                <button class="sheet-action-btn" onclick="alignEl('l')">⇤ Left</button>
-                <button class="sheet-action-btn" onclick="alignEl('c')">⇔ Center</button>
-                <button class="sheet-action-btn" onclick="alignEl('r')">⇥ Right</button>
-                <button class="sheet-action-btn" onclick="alignEl('m')">⇕ Mid</button>
-            </div>
-
-            <div class="sheet-section-title">Background</div>
-            <div class="sheet-bg-row">
+                <input type="text" 
+                    id="txtIn" 
+                    placeholder="Edit text..."
+                    oninput="setTxt(this.value)" 
+                    class="inp">
                 <div class="cr">
                     <label>Color</label>
-                    <input type="color" id="mobBgSC" value="#0a0f1e">
+                    <input type="color" 
+                        id="txtCol" value="#00f2fe"
+                        onchange="setProp('color',this.value)">
                 </div>
-                <button class="sheet-action-btn" onclick="applyMobBgSolid()">Apply</button>
-                <button class="sheet-action-btn sheet-danger-btn" onclick="clearBg()">Reset</button>
-            </div>
-
-            <div class="sheet-section-title">Presets</div>
-            <div class="sw-grid-mob">
-                <button class="sw" style="background:linear-gradient(135deg,#667eea,#764ba2)"
-                    onclick="preBg('#667eea','#764ba2')"></button>
-                <button class="sw" style="background:linear-gradient(135deg,#4facfe,#00f2fe)"
-                    onclick="preBg('#4facfe','#00f2fe')"></button>
-                <button class="sw" style="background:linear-gradient(135deg,#43e97b,#38f9d7)"
-                    onclick="preBg('#43e97b','#38f9d7')"></button>
-                <button class="sw" style="background:linear-gradient(135deg,#fa709a,#fee140)"
-                    onclick="preBg('#fa709a','#fee140')"></button>
-                <button class="sw" style="background:linear-gradient(135deg,#f093fb,#f5576c)"
-                    onclick="preBg('#f093fb','#f5576c')"></button>
-                <button class="sw" style="background:linear-gradient(135deg,#4481eb,#04befe)"
-                    onclick="preBg('#4481eb','#04befe')"></button>
-                <button class="sw" style="background:#000" onclick="preBg('#000','#000')"></button>
-                <button class="sw" style="background:#fff" onclick="preBg('#fff','#fff')"></button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===== SHEET: Transform ===== -->
-    <div class="mob-sheet" id="sheetTrans">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Transform</div>
-            </div>
-            <div class="sheet-slider-group">
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Scale</label>
-                        <span id="mob-v-sc">100%</span>
-                    </div>
-                    <input type="range" id="mob-sl-sc" min="10" max="300" value="100"
-                        oninput="setProp('scale',this.value)">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Rotate</label>
-                        <span id="mob-v-rt">0°</span>
-                    </div>
-                    <input type="range" id="mob-sl-rt" min="0" max="360" value="0"
-                        oninput="setProp('rotate',this.value)">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Opacity</label>
-                        <span id="mob-v-op">100%</span>
-                    </div>
-                    <input type="range" id="mob-sl-op" min="0" max="100" value="100"
-                        oninput="setProp('opacity',this.value)">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===== SHEET: Text ===== -->
-    <div class="mob-sheet" id="sheetText">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Typography</div>
-                <button class="sheet-add-btn" onclick="addText()">+ Add Text</button>
-            </div>
-
-            <input type="text" id="mobTxtIn" placeholder="Type your text here..." oninput="setTxt(this.value)"
-                class="sheet-text-input">
-
-            <div class="sheet-row">
-                <div class="sheet-color-pick">
-                    <label>Color</label>
-                    <input type="color" id="mobTxtCol" value="#00f2fe" onchange="setProp('color',this.value)">
-                </div>
-                <select id="mobFontSel" onchange="setProp('font',this.value)" class="sheet-select">
+                <select id="fontSel" 
+                    onchange="setProp('font',this.value)" 
+                    class="inp">
                     <option value="Arial">Arial</option>
                     <option value="Impact">Impact</option>
                     <option value="Georgia">Georgia</option>
                     <option value="Verdana">Verdana</option>
                     <option value="Courier New">Courier</option>
+                    <option value="Times New Roman">Times</option>
                 </select>
-            </div>
-
-            <div class="sheet-slider-group">
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Spacing</label><span>0px</span>
-                    </div>
-                    <input type="range" min="-5" max="30" value="0" oninput="setProp('charSpacing',this.value)">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Curve</label><span>0°</span>
-                    </div>
-                    <input type="range" min="-180" max="180" value="0" oninput="setProp('curve',this.value)">
+                <div class="upz sm">
+                    <input type="file" 
+                        accept=".ttf,.otf,.woff,.woff2" 
+                        onchange="upFont(event)">
+                    <span>📁 Upload Custom Font</span>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- ===== SHEET: FX ===== -->
-    <div class="mob-sheet" id="sheetFx">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Effects</div>
-            </div>
-            <div class="sheet-fx-grid">
-                <div class="fx-item">
-                    <input type="color" value="#000000" onchange="setProp('strokeColor',this.value)">
-                    <div class="sheet-sld">
-                        <div class="sheet-sld-head">
-                            <label>Stroke</label><span>2px</span>
-                        </div>
-                        <input type="range" min="0" max="15" value="2" oninput="setProp('stroke',this.value)">
-                    </div>
+            <div class="bp-col">
+                <div class="bp-h">Text Style</div>
+                <div class="sld">
+                    <label>Spacing</label>
+                    <input type="range" 
+                        id="sl-sp" 
+                        min="-5" max="30" value="0"
+                        oninput="setProp(
+                            'charSpacing',this.value)">
+                    <span id="v-sp">0px</span>
                 </div>
-                <div class="fx-item">
-                    <input type="color" value="#00f2fe" onchange="setProp('glowColor',this.value)">
-                    <div class="sheet-sld">
-                        <div class="sheet-sld-head">
-                            <label>Glow</label><span>8px</span>
-                        </div>
-                        <input type="range" min="0" max="40" value="8" oninput="setProp('glow',this.value)">
-                    </div>
-                </div>
-                <div class="fx-item">
-                    <input type="color" value="#1e293b" onchange="setProp('threeDColor',this.value)">
-                    <div class="sheet-sld">
-                        <div class="sheet-sld-head">
-                            <label>3D Depth</label><span>0px</span>
-                        </div>
-                        <input type="range" min="0" max="25" value="0" oninput="setProp('threeDDepth',this.value)">
-                    </div>
-                </div>
-                <div class="fx-item">
-                    <input type="color" value="#000000" onchange="setProp('innerShadowColor',this.value)">
-                    <div class="sheet-sld">
-                        <div class="sheet-sld-head">
-                            <label>Shadow</label><span>0px</span>
-                        </div>
-                        <input type="range" min="0" max="20" value="0" oninput="setProp('innerShadow',this.value)">
-                    </div>
-                </div>
-            </div>
-            <div class="sheet-slider-group">
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Emboss</label><span>0px</span>
-                    </div>
-                    <input type="range" min="0" max="10" value="0" oninput="setProp('emboss',this.value)">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Reflection</label><span>0%</span>
-                    </div>
-                    <input type="range" min="0" max="80" value="0" oninput="setProp('reflection',this.value)">
+                <div class="sld">
+                    <label>Curve</label>
+                    <input type="range" 
+                        id="sl-cu" 
+                        min="-180" max="180" value="0"
+                        oninput="setProp('curve',this.value)">
+                    <span id="v-cu">0°</span>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- ===== SHEET: Mask ===== -->
-    <div class="mob-sheet" id="sheetMask">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Mask &amp; Erase</div>
-            </div>
-
-            <div class="sheet-mode-row">
-                <button class="sheet-mode-btn active" onclick="setMode('select',this)">
-                    <span>↖</span> Select
-                </button>
-                <button class="sheet-mode-btn" onclick="setMode('eraser',this)">
-                    <span>◯</span> Erase
-                </button>
-                <button class="sheet-mode-btn" onclick="setMode('mask',this)">
-                    <span>▭</span> Mask
-                </button>
-            </div>
-
-            <div class="sheet-sld" style="margin:12px 0">
-                <div class="sheet-sld-head">
-                    <label>Brush Size</label><span>25px</span>
+        <!-- FX + Mask -->
+        <div class="bp-pan" id="bpFxMask">
+            <div class="bp-col">
+                <div class="bp-h">FX</div>
+                <div class="fx-row">
+                    <input type="color" 
+                        id="c-stroke" value="#000000"
+                        onchange="setProp(
+                            'strokeColor',this.value)">
+                    <div class="sld">
+                        <label>Stroke</label>
+                        <input type="range" 
+                            id="sl-st" 
+                            min="0" max="15" value="2"
+                            oninput="setProp(
+                                'stroke',this.value)">
+                        <span id="v-st">2px</span>
+                    </div>
                 </div>
-                <input type="range" min="5" max="100" value="25" oninput="bSz=parseInt(this.value)">
+                <div class="fx-row">
+                    <input type="color" 
+                        id="c-glow" value="#00f2fe"
+                        onchange="setProp(
+                            'glowColor',this.value)">
+                    <div class="sld">
+                        <label>Glow</label>
+                        <input type="range" 
+                            id="sl-gw" 
+                            min="0" max="40" value="8"
+                            oninput="setProp(
+                                'glow',this.value)">
+                        <span id="v-gw">8px</span>
+                    </div>
+                </div>
+                <div class="fx-row">
+                    <input type="color" 
+                        id="c-3d" value="#1e293b"
+                        onchange="setProp(
+                            'threeDColor',this.value)">
+                    <div class="sld">
+                        <label>3D</label>
+                        <input type="range" 
+                            id="sl-3d" 
+                            min="0" max="25" value="0"
+                            oninput="setProp(
+                                'threeDDepth',this.value)">
+                        <span id="v-3d">0px</span>
+                    </div>
+                </div>
+                <div class="fx-row">
+                    <input type="color" 
+                        id="c-is" value="#000000"
+                        onchange="setProp(
+                            'innerShadowColor',this.value)">
+                    <div class="sld">
+                        <label>Shadow</label>
+                        <input type="range" 
+                            id="sl-is" 
+                            min="0" max="20" value="0"
+                            oninput="setProp(
+                                'innerShadow',this.value)">
+                        <span id="v-is">0px</span>
+                    </div>
+                </div>
+                <div class="sld">
+                    <label>Emboss</label>
+                    <input type="range" 
+                        id="sl-em" 
+                        min="0" max="10" value="0"
+                        oninput="setProp('emboss',this.value)">
+                    <span id="v-em">0px</span>
+                </div>
+                <div class="sld">
+                    <label>Reflect</label>
+                    <input type="range" 
+                        id="sl-rf" 
+                        min="0" max="80" value="0"
+                        oninput="setProp(
+                            'reflection',this.value)">
+                    <span id="v-rf">0%</span>
+                </div>
             </div>
-
-            <div class="sheet-btn-group">
-                <button class="sheet-action-btn" onclick="restMask()" style="flex:1">
+            <div class="bp-col">
+                <div class="bp-h">Mask &amp; Erase</div>
+                <div class="mode-row">
+                    <button class="mode-btn active" 
+                        onclick="setMode('select',this)">
+                        ↖ Select
+                    </button>
+                    <button class="mode-btn" 
+                        onclick="setMode('eraser',this)">
+                        ◯ Erase
+                    </button>
+                    <button class="mode-btn" 
+                        onclick="setMode('mask',this)">
+                        ▭ Mask
+                    </button>
+                </div>
+                <div class="sld">
+                    <label>Brush</label>
+                    <input type="range" 
+                        id="sl-br" 
+                        min="5" max="100" value="25"
+                        oninput="bSz=parseInt(this.value);
+                        document.getElementById('v-br')
+                        .innerText=this.value+'px'">
+                    <span id="v-br">25px</span>
+                </div>
+                <button class="btn-ghost-full" 
+                    onclick="restMask()">
                     ↺ Restore Mask
                 </button>
             </div>
-            <div class="sheet-btn-group" style="margin-top:8px">
-                <button class="sheet-primary-btn" onclick="bgRemove('smart')" style="flex:1">
-                    ✦ AI BG Remove
-                </button>
-            </div>
-
-            <div class="sheet-section-title" style="margin-top:12px">Manual BG Remove</div>
-            <div class="sheet-btn-group">
-                <button class="sheet-action-btn" onclick="bgRemove('color')">🎨 Color</button>
-                <button class="sheet-action-btn" onclick="bgRemove('edge')">⚡ Edge</button>
-                <button class="sheet-action-btn" onclick="bgRemove('bright')">☀ Bright</button>
-            </div>
-            <div class="sheet-sld" style="margin-top:8px">
-                <div class="sheet-sld-head">
-                    <label>Tolerance</label>
-                    <span id="mob-v-tol">50</span>
+            <div class="bp-col">
+                <div class="bp-h">PixArt</div>
+                <div class="px-grid">
+                    <button class="px-btn" 
+                        onclick="pixelate(10)">⊞ Pixel</button>
+                    <button class="px-btn" 
+                        onclick="applyBlur(4)">💧 Blur</button>
+                    <button class="px-btn" 
+                        onclick="applySharpen()">⚡ Sharp</button>
+                    <button class="px-btn" 
+                        onclick="grayscale()">◑ Gray</button>
+                    <button class="px-btn" 
+                        onclick="posterize(4)">🎨 Poster</button>
+                    <button class="px-btn" 
+                        onclick="edgeDetect()">⊙ Edge</button>
+                    <button class="px-btn" 
+                        onclick="applyNoise(25)">∷ Noise</button>
+                    <button class="px-btn" 
+                        onclick="invertColors()">⊘ Invert</button>
                 </div>
-                <input type="range" id="mob-sl-tol" min="10" max="120" value="50" oninput="document.getElementById('mob-v-tol').innerText=this.value;
-                    document.getElementById('sl-tol').value=this.value">
             </div>
         </div>
+
+        <!-- Grade -->
+        <div class="bp-pan" id="bpGrade">
+            <div class="bp-col">
+                <div class="bp-h">Grade</div>
+                <div class="sld">
+                    <label>Brightness</label>
+                    <input type="range" 
+                        id="sg-br" 
+                        min="-100" max="100" value="0"
+                        oninput="liveG()">
+                    <span id="vg-br">0</span>
+                </div>
+                <div class="sld">
+                    <label>Contrast</label>
+                    <input type="range" 
+                        id="sg-ct" 
+                        min="-100" max="100" value="0"
+                        oninput="liveG()">
+                    <span id="vg-ct">0</span>
+                </div>
+                <div class="sld">
+                    <label>Saturation</label>
+                    <input type="range" 
+                        id="sg-sa" 
+                        min="-100" max="100" value="0"
+                        oninput="liveG()">
+                    <span id="vg-sa">0</span>
+                </div>
+                <div class="sld">
+                    <label>Temperature</label>
+                    <input type="range" 
+                        id="sg-te" 
+                        min="-50" max="50" value="0"
+                        oninput="liveG()">
+                    <span id="vg-te">0</span>
+                </div>
+                <div class="sld">
+                    <label>Vignette</label>
+                    <input type="range" 
+                        id="sg-vi" 
+                        min="0" max="100" value="0"
+                        oninput="liveG()">
+                    <span id="vg-vi">0</span>
+                </div>
+                <div class="sld">
+                    <label>Grain</label>
+                    <input type="range" 
+                        id="sg-gr" 
+                        min="0" max="50" value="0"
+                        oninput="liveG()">
+                    <span id="vg-gr">0</span>
+                </div>
+                <div class="grade-actions">
+                    <button class="btn-primary-full" 
+                        onclick="applyGrade()"
+                        style="flex:1">Apply Grade</button>
+                    <button class="act-d" 
+                        onclick="resetGrade()"
+                        style="flex:1">Reset</button>
+                </div>
+            </div>
+            <div class="bp-col">
+                <div class="bp-h">Presets</div>
+                <div class="gp-grid">
+                    <button class="gp" 
+                        onclick="gradeP('cinematic')">
+                        Cinema
+                    </button>
+                    <button class="gp" 
+                        onclick="gradeP('vintage')">
+                        Vintage
+                    </button>
+                    <button class="gp" 
+                        onclick="gradeP('warm')">Warm</button>
+                    <button class="gp" 
+                        onclick="gradeP('cool')">Cool</button>
+                    <button class="gp" 
+                        onclick="gradeP('noir')">Noir</button>
+                    <button class="gp" 
+                        onclick="gradeP('neon')">Neon</button>
+                    <button class="gp" 
+                        onclick="gradeP('sepia')">Sepia</button>
+                    <button class="gp" 
+                        onclick="gradeP('golden')">
+                        Golden
+                    </button>
+                    <button class="gp" 
+                        onclick="gradeP('hdr')">HDR</button>
+                </div>
+            </div>
+        </div>
+
     </div>
+</div>
 
-    <!-- ===== SHEET: Grade ===== -->
-    <div class="mob-sheet" id="sheetGrade">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Grading</div>
-                <div class="sheet-grade-actions">
-                    <button class="sheet-action-btn" onclick="resetGrade()">Reset</button>
-                    <button class="sheet-primary-btn" onclick="applyGrade()">Apply</button>
-                </div>
-            </div>
-
-            <div class="sheet-slider-group">
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Brightness</label>
-                        <span>0</span>
-                    </div>
-                    <input type="range" id="mob-sg-br" min="-100" max="100" value="0" oninput="liveG()">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Contrast</label>
-                        <span>0</span>
-                    </div>
-                    <input type="range" id="mob-sg-ct" min="-100" max="100" value="0" oninput="liveG()">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Saturation</label>
-                        <span>0</span>
-                    </div>
-                    <input type="range" id="mob-sg-sa" min="-100" max="100" value="0" oninput="liveG()">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Temperature</label>
-                        <span>0</span>
-                    </div>
-                    <input type="range" id="mob-sg-te" min="-50" max="50" value="0" oninput="liveG()">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Vignette</label>
-                        <span>0</span>
-                    </div>
-                    <input type="range" id="mob-sg-vi" min="0" max="100" value="0" oninput="liveG()">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head">
-                        <label>Grain</label>
-                        <span>0</span>
-                    </div>
-                    <input type="range" id="mob-sg-gr" min="0" max="50" value="0" oninput="liveG()">
-                </div>
-            </div>
-
-            <div class="sheet-section-title">Presets</div>
-            <div class="grade-preset-scroll">
-                <button class="grade-preset-btn" onclick="gradeP('cinematic')">
-                    <span class="gp-thumb" style="background:linear-gradient(135deg,#1a1a2e,#e94560)"></span>
-                    Cinema
-                </button>
-                <button class="grade-preset-btn" onclick="gradeP('vintage')">
-                    <span class="gp-thumb" style="background:linear-gradient(135deg,#d4a574,#8b5e3c)"></span>
-                    Vintage
-                </button>
-                <button class="grade-preset-btn" onclick="gradeP('warm')">
-                    <span class="gp-thumb" style="background:linear-gradient(135deg,#ff9a3c,#ff6b35)"></span>
-                    Warm
-                </button>
-                <button class="grade-preset-btn" onclick="gradeP('cool')">
-                    <span class="gp-thumb" style="background:linear-gradient(135deg,#4facfe,#00f2fe)"></span>
-                    Cool
-                </button>
-                <button class="grade-preset-btn" onclick="gradeP('noir')">
-                    <span class="gp-thumb" style="background:linear-gradient(135deg,#000,#333)"></span>
-                    Noir
-                </button>
-                <button class="grade-preset-btn" onclick="gradeP('neon')">
-                    <span class="gp-thumb" style="background:linear-gradient(135deg,#f953c6,#b91d73)"></span>
-                    Neon
-                </button>
-                <button class="grade-preset-btn" onclick="gradeP('golden')">
-                    <span class="gp-thumb" style="background:linear-gradient(135deg,#f7971e,#ffd200)"></span>
-                    Golden
-                </button>
-                <button class="grade-preset-btn" onclick="gradeP('hdr')">
-                    <span class="gp-thumb" style="background:linear-gradient(135deg,#0f2027,#203a43,#2c5364)"></span>
-                    HDR
-                </button>
-            </div>
-
-            <div class="sheet-section-title">PixArt</div>
-            <div class="pixart-grid">
-                <button class="pixart-btn" onclick="pixelate(10)">
-                    <span>⊞</span> Pixel
-                </button>
-                <button class="pixart-btn" onclick="applyBlur(4)">
-                    <span>💧</span> Blur
-                </button>
-                <button class="pixart-btn" onclick="applySharpen()">
-                    <span>⚡</span> Sharp
-                </button>
-                <button class="pixart-btn" onclick="grayscale()">
-                    <span>◑</span> Gray
-                </button>
-                <button class="pixart-btn" onclick="posterize(4)">
-                    <span>🎨</span> Poster
-                </button>
-                <button class="pixart-btn" onclick="edgeDetect()">
-                    <span>⊙</span> Edge
-                </button>
-                <button class="pixart-btn" onclick="applyNoise(25)">
-                    <span>∷</span> Noise
-                </button>
-                <button class="pixart-btn" onclick="invertColors()">
-                    <span>⊘</span> Invert
-                </button>
-            </div>
-        </div>
+<!-- STATUS BAR -->
+<div class="statusbar desk-only">
+    <div class="st-l">
+        <span class="st-dot"></span>
+        <span id="logTxt2" class="st-log">Ready</span>
     </div>
-
-    <!-- ===== SHEET: History ===== -->
-    <div class="mob-sheet" id="sheetHist">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">History</div>
-                <button class="sheet-action-btn" onclick="clearHistory()">Clear</button>
-            </div>
-            <div id="histList" class="hist-list">
-                <div class="hist-empty">No history yet</div>
-            </div>
-        </div>
+    <div class="st-c">
+        <span id="cvInfo">1280 × 720</span>
     </div>
-
-    <!-- ===== DESKTOP BOTTOM PANEL ===== -->
-    <div class="resize-handle resize-v desk-only" id="resizeBottom"></div>
-    <div class="bottom-panel desk-only" id="bottomPanel">
-        <div class="bp-tabs">
-            <button class="bp-tab active" data-p="bpLib" onclick="bpTab(this)">
-                ⊞ Library
-            </button>
-            <button class="bp-tab" data-p="bpTrans" onclick="bpTab(this)">
-                ⤡ Transform
-            </button>
-            <button class="bp-tab" data-p="bpText" onclick="bpTab(this)">
-                T Typography
-            </button>
-            <button class="bp-tab" data-p="bpFxMask" onclick="bpTab(this)">
-                ✨ FX+Mask
-            </button>
-            <button class="bp-tab" data-p="bpGrade" onclick="bpTab(this)">
-                ◐ Grade
-            </button>
-        </div>
-        <div class="bp-body">
-
-            <!-- Library -->
-            <div class="bp-pan active" id="bpLib">
-                <div class="bp-col">
-                    <div class="bp-h">Layers</div>
-                    <div class="upz">
-                        <input type="file" accept="image/*" onchange="addImg(event)">
-                        <span>📁 Upload Image</span>
-                    </div>
-                    <button class="btn-ghost-full" onclick="addText()">T Add Text Layer</button>
-                    <div class="sel-info">Selected: <b id="selLblDesk">None</b></div>
-                    <div class="act-row">
-                        <button onclick="layerOp('front')">⬆ Front</button>
-                        <button onclick="layerOp('back')">⬇ Back</button>
-                        <button onclick="layerOp('dup')">⧉ Dup</button>
-                    </div>
-                    <div class="act-row">
-                        <button onclick="alignEl('l')">⇤ L</button>
-                        <button onclick="alignEl('c')">⇔ C</button>
-                        <button onclick="alignEl('r')">⇥ R</button>
-                        <button onclick="alignEl('m')">⇕ M</button>
-                    </div>
-                </div>
-                <div class="bp-col">
-                    <div class="bp-h">Background</div>
-                    <div class="bg-tabs" id="bgTB">
-                        <button class="bgt active" data-p="bgS" onclick="bgT(this)">Solid</button>
-                        <button class="bgt" data-p="bgG" onclick="bgT(this)">Gradient</button>
-                        <button class="bgt" data-p="bgPt" onclick="bgT(this)">Pattern</button>
-                        <button class="bgt" data-p="bgPr" onclick="bgT(this)">Presets</button>
-                    </div>
-                    <div id="bgPans">
-                        <div class="bgp active" id="bgS">
-                            <div class="cr">
-                                <label>Color</label>
-                                <input type="color" id="bgSC" value="#0a0f1e">
-                            </div>
-                            <div class="act-row">
-                                <button onclick="setBg('solid')" style="flex:1">Apply</button>
-                                <button class="act-d" onclick="clearBg()" style="flex:1">Reset</button>
-                            </div>
-                        </div>
-                        <div class="bgp" id="bgG">
-                            <div class="cr"><label>From</label>
-                                <input type="color" id="bgG1" value="#00f2fe">
-                            </div>
-                            <div class="cr"><label>To</label>
-                                <input type="color" id="bgG2" value="#7928ca">
-                            </div>
-                            <select id="bgGD" class="inp">
-                                <option value="tb">Vertical</option>
-                                <option value="lr">Horizontal</option>
-                                <option value="diag">Diagonal</option>
-                                <option value="rad">Radial</option>
-                            </select>
-                            <button class="btn-ghost-full" onclick="setBg('grad')">Apply Gradient</button>
-                        </div>
-                        <div class="bgp" id="bgPt">
-                            <div class="pat-row">
-                                <button onclick="setBg('pat','dots')">Dots</button>
-                                <button onclick="setBg('pat','grid')">Grid</button>
-                                <button onclick="setBg('pat','stripe')">Stripe</button>
-                                <button onclick="setBg('pat','check')">Check</button>
-                                <button onclick="setBg('pat','diamond')">Diamond</button>
-                                <button onclick="setBg('pat','zigzag')">Zigzag</button>
-                            </div>
-                            <div class="cr"><label>Line</label>
-                                <input type="color" id="bgPC" value="#00f2fe">
-                            </div>
-                            <div class="cr"><label>Base</label>
-                                <input type="color" id="bgPB" value="#0a0f1e">
-                            </div>
-                        </div>
-                        <div class="bgp" id="bgPr">
-                            <div class="sw-grid">
-                                <button class="sw" style="background:linear-gradient(135deg,#667eea,#764ba2)"
-                                    onclick="preBg('#667eea','#764ba2')"></button>
-                                <button class="sw" style="background:linear-gradient(135deg,#4facfe,#00f2fe)"
-                                    onclick="preBg('#4facfe','#00f2fe')"></button>
-                                <button class="sw" style="background:linear-gradient(135deg,#43e97b,#38f9d7)"
-                                    onclick="preBg('#43e97b','#38f9d7')"></button>
-                                <button class="sw" style="background:linear-gradient(135deg,#fa709a,#fee140)"
-                                    onclick="preBg('#fa709a','#fee140')"></button>
-                                <button class="sw" style="background:linear-gradient(135deg,#f093fb,#f5576c)"
-                                    onclick="preBg('#f093fb','#f5576c')"></button>
-                                <button class="sw" style="background:linear-gradient(135deg,#4481eb,#04befe)"
-                                    onclick="preBg('#4481eb','#04befe')"></button>
-                                <button class="sw" style="background:#000" onclick="preBg('#000','#000')"></button>
-                                <button class="sw" style="background:#fff" onclick="preBg('#fff','#fff')"></button>
-                            </div>
-                            <button class="act-d" onclick="clearBg()" style="width:100%;margin-top:4px">Reset
-                                BG</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Transform -->
-            <div class="bp-pan" id="bpTrans">
-                <div class="bp-col">
-                    <div class="bp-h">Transform</div>
-                    <div class="sld">
-                        <label>Scale</label>
-                        <input type="range" id="sl-sc" min="10" max="300" value="100"
-                            oninput="setProp('scale',this.value)">
-                        <span id="v-sc">100%</span>
-                    </div>
-                    <div class="sld">
-                        <label>Rotate</label>
-                        <input type="range" id="sl-rt" min="0" max="360" value="0"
-                            oninput="setProp('rotate',this.value)">
-                        <span id="v-rt">0°</span>
-                    </div>
-                    <div class="sld">
-                        <label>Opacity</label>
-                        <input type="range" id="sl-op" min="0" max="100" value="100"
-                            oninput="setProp('opacity',this.value)">
-                        <span id="v-op">100%</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Typography -->
-            <div class="bp-pan" id="bpText">
-                <div class="bp-col">
-                    <div class="bp-h">Typography</div>
-                    <button class="btn-primary-full" onclick="addText()" style="margin-bottom:6px">T Add Text
-                        Layer</button>
-                    <input type="text" id="txtIn" placeholder="Edit text..." oninput="setTxt(this.value)" class="inp">
-                    <div class="cr">
-                        <label>Color</label>
-                        <input type="color" id="txtCol" value="#00f2fe" onchange="setProp('color',this.value)">
-                    </div>
-                    <select id="fontSel" onchange="setProp('font',this.value)" class="inp">
-                        <option value="Arial">Arial</option>
-                        <option value="Impact">Impact</option>
-                        <option value="Georgia">Georgia</option>
-                        <option value="Verdana">Verdana</option>
-                        <option value="Courier New">Courier</option>
-                        <option value="Times New Roman">Times</option>
-                    </select>
-                    <div class="upz sm">
-                        <input type="file" accept=".ttf,.otf,.woff,.woff2" onchange="upFont(event)">
-                        <span>📁 Upload Custom Font</span>
-                    </div>
-                </div>
-                <div class="bp-col">
-                    <div class="bp-h">Text Style</div>
-                    <div class="sld">
-                        <label>Spacing</label>
-                        <input type="range" id="sl-sp" min="-5" max="30" value="0"
-                            oninput="setProp('charSpacing',this.value)">
-                        <span id="v-sp">0px</span>
-                    </div>
-                    <div class="sld">
-                        <label>Curve</label>
-                        <input type="range" id="sl-cu" min="-180" max="180" value="0"
-                            oninput="setProp('curve',this.value)">
-                        <span id="v-cu">0°</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- FX + Mask -->
-            <div class="bp-pan" id="bpFxMask">
-                <div class="bp-col">
-                    <div class="bp-h">FX</div>
-                    <div class="fx-row">
-                        <input type="color" id="c-stroke" value="#000000" onchange="setProp('strokeColor',this.value)">
-                        <div class="sld">
-                            <label>Stroke</label>
-                            <input type="range" id="sl-st" min="0" max="15" value="2"
-                                oninput="setProp('stroke',this.value)">
-                            <span id="v-st">2px</span>
-                        </div>
-                    </div>
-                    <div class="fx-row">
-                        <input type="color" id="c-glow" value="#00f2fe" onchange="setProp('glowColor',this.value)">
-                        <div class="sld">
-                            <label>Glow</label>
-                            <input type="range" id="sl-gw" min="0" max="40" value="8"
-                                oninput="setProp('glow',this.value)">
-                            <span id="v-gw">8px</span>
-                        </div>
-                    </div>
-                    <div class="fx-row">
-                        <input type="color" id="c-3d" value="#1e293b" onchange="setProp('threeDColor',this.value)">
-                        <div class="sld">
-                            <label>3D</label>
-                            <input type="range" id="sl-3d" min="0" max="25" value="0"
-                                oninput="setProp('threeDDepth',this.value)">
-                            <span id="v-3d">0px</span>
-                        </div>
-                    </div>
-                    <div class="fx-row">
-                        <input type="color" id="c-is" value="#000000" onchange="setProp('innerShadowColor',this.value)">
-                        <div class="sld">
-                            <label>Shadow</label>
-                            <input type="range" id="sl-is" min="0" max="20" value="0"
-                                oninput="setProp('innerShadow',this.value)">
-                            <span id="v-is">0px</span>
-                        </div>
-                    </div>
-                    <div class="sld">
-                        <label>Emboss</label>
-                        <input type="range" id="sl-em" min="0" max="10" value="0"
-                            oninput="setProp('emboss',this.value)">
-                        <span id="v-em">0px</span>
-                    </div>
-                    <div class="sld">
-                        <label>Reflect</label>
-                        <input type="range" id="sl-rf" min="0" max="80" value="0"
-                            oninput="setProp('reflection',this.value)">
-                        <span id="v-rf">0%</span>
-                    </div>
-                </div>
-                <div class="bp-col">
-                    <div class="bp-h">Mask &amp; Erase</div>
-                    <div class="mode-row">
-                        <button class="mode-btn active" onclick="setMode('select',this)">
-                            ↖ Select
-                        </button>
-                        <button class="mode-btn" onclick="setMode('eraser',this)">
-                            ◯ Erase
-                        </button>
-                        <button class="mode-btn" onclick="setMode('mask',this)">
-                            ▭ Mask
-                        </button>
-                    </div>
-                    <div class="sld">
-                        <label>Brush</label>
-                        <input type="range" id="sl-br" min="5" max="100" value="25" oninput="bSz=parseInt(this.value);
-                            document.getElementById('v-br').innerText=this.value+'px'">
-                        <span id="v-br">25px</span>
-                    </div>
-                    <button class="btn-ghost-full" onclick="restMask()">↺ Restore Mask</button>
-                </div>
-                <div class="bp-col">
-                    <div class="bp-h">PixArt</div>
-                    <div class="px-grid">
-                        <button class="px-btn" onclick="pixelate(10)">⊞ Pixel</button>
-                        <button class="px-btn" onclick="applyBlur(4)">💧 Blur</button>
-                        <button class="px-btn" onclick="applySharpen()">⚡ Sharp</button>
-                        <button class="px-btn" onclick="grayscale()">◑ Gray</button>
-                        <button class="px-btn" onclick="posterize(4)">🎨 Poster</button>
-                        <button class="px-btn" onclick="edgeDetect()">⊙ Edge</button>
-                        <button class="px-btn" onclick="applyNoise(25)">∷ Noise</button>
-                        <button class="px-btn" onclick="invertColors()">⊘ Invert</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Grade -->
-            <div class="bp-pan" id="bpGrade">
-                <div class="bp-col">
-                    <div class="bp-h">Grade</div>
-                    <div class="sld">
-                        <label>Brightness</label>
-                        <input type="range" id="sg-br" min="-100" max="100" value="0" oninput="liveG()">
-                        <span id="vg-br">0</span>
-                    </div>
-                    <div class="sld">
-                        <label>Contrast</label>
-                        <input type="range" id="sg-ct" min="-100" max="100" value="0" oninput="liveG()">
-                        <span id="vg-ct">0</span>
-                    </div>
-                    <div class="sld">
-                        <label>Saturation</label>
-                        <input type="range" id="sg-sa" min="-100" max="100" value="0" oninput="liveG()">
-                        <span id="vg-sa">0</span>
-                    </div>
-                    <div class="sld">
-                        <label>Temperature</label>
-                        <input type="range" id="sg-te" min="-50" max="50" value="0" oninput="liveG()">
-                        <span id="vg-te">0</span>
-                    </div>
-                    <div class="sld">
-                        <label>Vignette</label>
-                        <input type="range" id="sg-vi" min="0" max="100" value="0" oninput="liveG()">
-                        <span id="vg-vi">0</span>
-                    </div>
-                    <div class="sld">
-                        <label>Grain</label>
-                        <input type="range" id="sg-gr" min="0" max="50" value="0" oninput="liveG()">
-                        <span id="vg-gr">0</span>
-                    </div>
-                    <div class="grade-actions">
-                        <button class="btn-primary-full" onclick="applyGrade()" style="flex:1">Apply Grade</button>
-                        <button class="act-d" onclick="resetGrade()" style="flex:1">Reset</button>
-                    </div>
-                </div>
-                <div class="bp-col">
-                    <div class="bp-h">Presets</div>
-                    <div class="gp-grid">
-                        <button class="gp" onclick="gradeP('cinematic')">Cinema</button>
-                        <button class="gp" onclick="gradeP('vintage')">Vintage</button>
-                        <button class="gp" onclick="gradeP('warm')">Warm</button>
-                        <button class="gp" onclick="gradeP('cool')">Cool</button>
-                        <button class="gp" onclick="gradeP('noir')">Noir</button>
-                        <button class="gp" onclick="gradeP('neon')">Neon</button>
-                        <button class="gp" onclick="gradeP('sepia')">Sepia</button>
-                        <button class="gp" onclick="gradeP('golden')">Golden</button>
-                        <button class="gp" onclick="gradeP('hdr')">HDR</button>
-                    </div>
-                </div>
-            </div>
-
-        </div>
+    <div class="st-r">
+        <span>Arjona AI Studio v2.0</span>
     </div>
+</div>
 
-    <!-- STATUS BAR -->
-    <div class="statusbar desk-only">
-        <div class="st-l">
-            <span class="st-dot"></span>
-            <span id="logTxt2" class="st-log">Ready</span>
-        </div>
-        <div class="st-c"><span id="cvInfo">1280 × 720</span></div>
-        <div class="st-r"><span>Arjona AI Studio</span></div>
-    </div>
+<!-- ===== SCRIPTS — CORRECT ORDER ===== -->
+<script src="animations.js"></script>
+<script src="physics.js"></script>
+<script src="api-client.js"></script>
+<script src="install.js"></script>
+<script src="script.js"></script>
 
-    <script src="script.js"></script>
-    <script src="install.js"></script>
 </body>
-
 </html>

@@ -1,3 +1,45 @@
+/* ===== DOWNLOAD FUNCTIONS ===== */
+function openDownload() {
+    var overlay = document.getElementById('downloadOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function closeDownload() {
+    var overlay = document.getElementById('downloadOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function installApp(platform) {
+    if (platform === 'ios') {
+        /* iOS Guide */
+        if (window.InstallManager && InstallManager.showIOSGuide) {
+            InstallManager.showIOSGuide();
+        } else {
+            showToastSafe(
+                'Safari me Share → Add to Home Screen karo!',
+                'info', 5000
+            );
+        }
+        closeDownload();
+        return;
+    }
+
+    if (platform === 'android' || platform === 'desktop') {
+        /* Try PWA install */
+        if (window.InstallManager && InstallManager.install) {
+            InstallManager.install();
+        } else {
+            showToastSafe(
+                'Chrome me 3 dots → Add to Home Screen karo!',
+                'info', 5000
+            );
+        }
+        closeDownload();
+        return;
+    }
+
+    closeDownload();
+}
 /* ============================================
    ARJONA +AI STUDIO — MAIN APP CONNECTOR
    Connects all modules together
