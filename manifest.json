@@ -84,14 +84,14 @@
     "screenshots": [
         {
             "src": "/screenshots/desktop.png",
-            "sizes": "1280x720",
+            "sizes": "1920x1067",
             "type": "image/png",
             "form_factor": "wide",
             "label": "Desktop View"
         },
         {
             "src": "/screenshots/mobile.png",
-            "sizes": "390x844",
+            "sizes": "789x1683",
             "type": "image/png",
             "form_factor": "narrow",
             "label": "Mobile View"
@@ -102,19 +102,6 @@
             "name": "AI Generate",
             "short_name": "Generate",
             "description": "Generate AI images",
-            "url": "/",
-            "icons": [
-                {
-                    "src": "/icons/icon-96.png",
-                    "sizes": "96x96",
-                    "type": "image/png"
-                }
-            ]
-        },
-        {
-            "name": "Upload Image",
-            "short_name": "Upload",
-            "description": "Upload and edit image",
             "url": "/",
             "icons": [
                 {
