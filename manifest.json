@@ -84,14 +84,14 @@
     "screenshots": [
         {
             "src": "/screenshots/desktop.png",
-            "sizes": "1920x1067",
+            "sizes": "1920x1080",
             "type": "image/png",
             "form_factor": "wide",
             "label": "Desktop View"
         },
         {
             "src": "/screenshots/mobile.png",
-            "sizes": "789x1683",
+            "sizes": "789x1600",
             "type": "image/png",
             "form_factor": "narrow",
             "label": "Mobile View"
