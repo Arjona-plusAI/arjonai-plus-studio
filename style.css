@@ -4137,3 +4137,29 @@ canvas#mainCanvas {
     .btn-download { display: none; }
     .download-box { border-radius: 20px; }
 }
+/* APK Download Card */
+.dl-card-apk {
+    border: 2px solid #00d4ff !important;
+    background: rgba(0, 212, 255, 0.05) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.dl-card-apk::before {
+    content: 'BEST';
+    position: absolute;
+    top: 10px;
+    right: -22px;
+    background: linear-gradient(135deg, #00d4ff, #7c3aed);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 900;
+    padding: 3px 26px;
+    transform: rotate(45deg);
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.dl-apk-icon {
+    background: linear-gradient(135deg, #ff6b35, #ff4500) !important;
+}

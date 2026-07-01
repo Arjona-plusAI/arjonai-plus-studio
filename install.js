@@ -1,3 +1,25 @@
+/* APK DOWNLOAD FUNCTION */
+function downloadAPK() {
+    var link = document.createElement('a');
+    link.href = '/ArjonaAI.apk';
+    link.download = 'ArjonaAI.apk';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(function () {
+        if (window.showToastSafe) {
+            showToastSafe(
+                'APK downloading! Install after download.',
+                'success', 5000
+            );
+        } else {
+            alert('APK downloading! Open file to install.');
+        }
+    }, 500);
+}
+
+window.downloadAPK = downloadAPK;
 /* ============================================
    ARJONA AI STUDIO — INSTALL MANAGER
    PWA Install Handler
