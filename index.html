@@ -841,6 +841,19 @@
             </div>
             <input type="text" id="mobTxtIn" placeholder="Type your text here..." oninput="setTxt(this.value)"
                 class="sheet-text-input">
+
+            <!-- Text Size Slider -->
+            <div class="sheet-sld">
+                <div class="sheet-sld-head">
+                    <label>Size</label>
+                    <span id="mob-v-fs">60px</span>
+                </div>
+                <input type="range" id="mob-sl-fs" min="12" max="300" value="60" oninput="setProp('fontSize',this.value);
+        document.getElementById('mob-v-fs').innerText=this.value+'px'">
+            </div>
+
+
+
             <div class="sheet-row">
                 <div class="sheet-color-pick">
                     <label>Color</label>
@@ -1438,6 +1451,16 @@
                     <div class="bp-h">Typography</div>
                     <input type="text" id="txtIn" placeholder="Click to add text..." oninput="setTxt(this.value)"
                         class="inp">
+
+                    <div class="sld">
+                        <label>Size</label>
+                        <input type="range" id="sl-fs" min="12" max="300" value="60" oninput="setProp('fontSize',this.value);
+        document.getElementById('v-fs').innerText=this.value+'px'">
+                        <span id="v-fs">60px</span>
+                    </div>
+
+
+
                     <div class="cr">
                         <label>Color</label>
                         <input type="color" id="txtCol" value="#7F3DFF" onchange="setProp('color',this.value)">
