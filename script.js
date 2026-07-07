@@ -1925,16 +1925,22 @@ function clearHistory() {
     histLabels = last ? ['Init'] : [];
     renderHistList();
 }
-
 function triggerUndo() {
     if (uS.length <= 1) return;
-    rS.push(uS.pop()); histLabels.pop();
-    restS(uS[uS.length - 1]);
+    rS.push(uS.pop());
+    histLabels.pop();
+    if (uS.length > 0) {
+        restS(uS[uS.length - 1]);
+    }
+    R();
 }
 
 function triggerRedo() {
     if (!rS.length) return;
-    var s = rS.pop(); uS.push(s); restS(s);
+    var s = rS.pop();
+    uS.push(s);
+    restS(s);
+    R();
 }
 
 function restS(json) {
@@ -2215,19 +2221,18 @@ function hitEl(el, x, y) {
         return lx >= -w / 2 && lx <= w / 2 && ly >= -h / 2 && ly <= h / 2;
     }
     if (el.type === 'text') {
+        var fs = el.fontSize || Math.max(el.scale * 0.6, 8);
         ctx.save();
-        var fs = Math.max(el.scale * 0.6, 8);
         ctx.font = 'bold ' + fs + 'px "' + (el.font || 'Arial') + '"';
         var tw = ctx.measureText(el.text || '').width;
-        var totalW = tw + ((el.charSpacing || 0) * (el.text || '').length);
         ctx.restore();
-        var padding = 20;
-        var textHeight = fs * 1.2;
+        var padding = 25;
+        var textH = fs * 1.2;
         var rot = (el.rotate || 0) * Math.PI / 180;
         var lx = Math.cos(-rot) * (x - el.x) - Math.sin(-rot) * (y - el.y);
         var ly = Math.sin(-rot) * (x - el.x) + Math.cos(-rot) * (y - el.y);
-        return lx >= -totalW / 2 - padding && lx <= totalW / 2 + padding &&
-            ly >= -textHeight / 2 - padding && ly <= textHeight / 2 + padding;
+        return lx >= -tw / 2 - padding && lx <= tw / 2 + padding &&
+               ly >= -textH / 2 - padding && ly <= textH / 2 + padding;
     }
     return false;
 }
@@ -2298,14 +2303,42 @@ function setTxt(v) {
         if (mi && mi !== document.activeElement) mi.value = v;
     }
 }
-
 function setProp(p, v) {
-    var el = findEl(selId); if (!el) return;
-    var cp = ['color', 'strokeColor', 'threeDColor', 'glowColor', 'font',
-        'innerShadowColor', 'embossColor', 'threeDShadowColor'];
-    el[p] = cp.indexOf(p) >= 0 ? v : parseFloat(v);
+    var el = findEl(selId);
+    if (!el) return;
+    var strProps = ['color', 'strokeColor', 'threeDColor', 'glowColor',
+        'font', 'innerShadowColor', 'embossColor', 'threeDShadowColor'];
+    el[p] = strProps.indexOf(p) >= 0 ? v : parseFloat(v);
+
+    /* Update display values */
+    var displays = {
+        scale: ['v-sc', '%', 'mob-v-sc'],
+        rotate: ['v-rt', '°', 'mob-v-rt'],
+        opacity: ['v-op', '%', 'mob-v-op'],
+        fontSize: ['v-fs', 'px', 'mob-v-fs'],
+        charSpacing: ['v-sp', 'px'],
+        curve: ['v-cu', '°'],
+        stroke: ['v-st', 'px'],
+        glow: ['v-gw', 'px'],
+        threeDDepth: ['v-3d', 'px'],
+        innerShadow: ['v-is', 'px'],
+        emboss: ['v-em', 'px'],
+        reflection: ['v-rf', '%']
+    };
+
+    if (displays[p]) {
+        var d = displays[p];
+        var el1 = document.getElementById(d[0]);
+        if (el1) el1.innerText = v + d[1];
+        if (d[2]) {
+            var el2 = document.getElementById(d[2]);
+            if (el2) el2.innerText = v + d[1];
+        }
+    }
+
     R();
 }
+
 
 function upFont(ev) {
     var f = ev.target.files[0]; if (!f) return;
@@ -2539,7 +2572,7 @@ function R() {
         }
         ctx.restore();
     }
-
+    /* Selection outline — fixed position */
     if (selId) {
         var sel = findEl(selId);
         if (sel) {
@@ -2547,16 +2580,31 @@ function R() {
             ctx.setLineDash([6, 3]);
             ctx.strokeStyle = '#7F3DFF';
             ctx.lineWidth = 2;
+
             if (sel.type === 'image' && sel.content && sel.content.complete) {
                 var sw = sel.content.width * (sel.scale / 100);
                 var sh = sel.content.height * (sel.scale / 100);
                 ctx.save();
                 ctx.translate(sel.x + sw / 2, sel.y + sh / 2);
                 ctx.rotate((sel.rotate || 0) * Math.PI / 180);
-                ctx.strokeRect(-sw / 2 - 5, -sh / 2 - 5, sw + 10, sh + 10);
+                ctx.strokeRect(-sw / 2 - 4, -sh / 2 - 4, sw + 8, sh + 8);
+                ctx.restore();
+            } else if (sel.type === 'text') {
+                var fs2 = sel.fontSize || Math.max(sel.scale * 0.6, 8);
+                ctx.font = 'bold ' + fs2 + 'px "' + (sel.font || 'Arial') + '"';
+                var tw2 = ctx.measureText(sel.text || '').width;
+                var th2 = fs2 * 1.2;
+                ctx.save();
+                ctx.translate(sel.x, sel.y);
+                ctx.rotate((sel.rotate || 0) * Math.PI / 180);
+                ctx.strokeRect(-tw2 / 2 - 8, -th2 / 2 - 6, tw2 + 16, th2 + 12);
                 ctx.restore();
             }
+
             ctx.restore();
+        }
+    }
+   
         }
     }
 }
