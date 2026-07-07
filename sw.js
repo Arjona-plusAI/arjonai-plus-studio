@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE = 'arjona-v1';
+var CACHE = 'arjona-v2';
 var FILES = [
     '/',
     '/index.html',
