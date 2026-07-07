@@ -3782,3 +3782,21 @@ function mD(pt) {
             });
         }
     });
+    /* ===== AUTO UPDATE CHECK ===== */
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+        if (confirm('New update available! Reload to update?')) {
+            window.location.reload();
+        }
+    });
+
+    navigator.serviceWorker.ready.then(function(reg) {
+        /* Check for updates every 30 minutes */
+        setInterval(function() {
+            reg.update();
+        }, 30 * 60 * 1000);
+        
+        /* Also check on page load */
+        reg.update();
+    });
+}
