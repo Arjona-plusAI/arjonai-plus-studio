@@ -1,6 +1,11 @@
 'use strict';
 
-var CACHE = 'arjona-v2';
+/* ============================================
+   ARJONA +AI STUDIO — SERVICE WORKER
+   Cleaned: duplicate listeners removed, artifacts removed
+   ============================================ */
+
+var CACHE = 'arjona-v5';
 var FILES = [
     '/',
     '/index.html',
@@ -13,77 +18,54 @@ var FILES = [
     '/manifest.json'
 ];
 
-self.addEventListener('install', function(e) {
+/* ===== INSTALL ===== */
+self.addEventListener('install', function (e) {
     e.waitUntil(
-        caches.open(CACHE).then(function(c) {
+        caches.open(CACHE).then(function (c) {
             return c.addAll(FILES);
-        }).then(function() {
+        }).then(function () {
             return self.skipWaiting();
-        }).catch(function(err) {
+        }).catch(function (err) {
             console.warn('Cache err:', err);
         })
     );
 });
 
-self.addEventListener('activate', function(e) {
+/* ===== ACTIVATE ===== */
+self.addEventListener('activate', function (e) {
     e.waitUntil(
-        caches.keys().then(function(keys) {
+        caches.keys().then(function (keys) {
             return Promise.all(
-                keys.filter(function(k) {
+                keys.filter(function (k) {
                     return k !== CACHE;
-                }).map(function(k) {
+                }).map(function (k) {
                     return caches.delete(k);
                 })
             );
-        }).then(function() {
+        }).then(function () {
             return self.clients.claim();
         })
     );
 });
 
-self.addEventListener('fetch', function(e) {
+/* ===== FETCH ===== */
+self.addEventListener('fetch', function (e) {
     if (e.request.method !== 'GET') return;
 
     e.respondWith(
-        caches.match(e.request).then(function(cached) {
+        caches.match(e.request).then(function (cached) {
             if (cached) return cached;
-            return fetch(e.request).then(function(res) {
+            return fetch(e.request).then(function (res) {
                 if (res && res.status === 200) {
                     var clone = res.clone();
-                    caches.open(CACHE).then(function(c) {
+                    caches.open(CACHE).then(function (c) {
                         c.put(e.request, clone);
                     });
                 }
                 return res;
-            }).catch(function() {
+            }).catch(function () {
                 return caches.match('/index.html');
             });
-        })
-    );
-});
-/* Auto activate new version */
-self.addEventListener('install', function(e) {
-    e.waitUntil(
-        caches.open(CACHE).then(function(c) {
-            return c.addAll(FILES);
-        }).then(function() {
-            return self.skipWaiting();
-        })
-    );
-});
-
-self.addEventListener('activate', function(e) {
-    e.waitUntil(
-        caches.keys().then(function(keys) {
-            return Promise.all(
-                keys.filter(function(k) {
-                    return k !== CACHE;
-                }).map(function(k) {
-                    return caches.delete(k);
-                })
-            );
-        }).then(function() {
-            return self.clients.claim();
         })
     );
 });

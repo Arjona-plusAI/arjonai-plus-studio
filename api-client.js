@@ -1,8 +1,7 @@
 /* ============================================
    ARJONA +AI STUDIO — API CLIENT
-   Professional API Handler v2.0
+   Professional API Handler v2.0 (Cleaned)
    ============================================ */
-
 'use strict';
 
 const ApiClient = (function () {
@@ -49,16 +48,9 @@ const ApiClient = (function () {
             const timer = setTimeout(() => {
                 reject(new Error('Request timeout after ' + timeout + 'ms'));
             }, timeout);
-
             fetch(url, options)
-                .then(res => {
-                    clearTimeout(timer);
-                    resolve(res);
-                })
-                .catch(err => {
-                    clearTimeout(timer);
-                    reject(err);
-                });
+                .then(res => { clearTimeout(timer); resolve(res); })
+                .catch(err => { clearTimeout(timer); reject(err); });
         });
     }
 
@@ -87,50 +79,36 @@ const ApiClient = (function () {
 
     /* ===== EVENT EMITTER ===== */
     const events = {};
-
     function on(event, handler) {
         if (!events[event]) events[event] = [];
         events[event].push(handler);
     }
-
     function off(event, handler) {
         if (!events[event]) return;
         events[event] = events[event].filter(h => h !== handler);
     }
-
     function emit(event, data) {
         if (!events[event]) return;
-        events[event].forEach(h => {
-            try { h(data); } catch (e) { }
-        });
+        events[event].forEach(h => { try { h(data); } catch (e) { } });
     }
 
     /* ===== AI IMAGE GENERATION ===== */
     const ImageAPI = {
-
         generate(prompt, options = {}) {
             return new Promise((resolve, reject) => {
-
                 if (!prompt || !prompt.trim()) {
                     reject(new Error('Prompt is required'));
                     return;
                 }
-
                 const width = options.width || 1280;
                 const height = options.height || 720;
                 const style = options.style || '';
-                const seed = options.seed ||
-                    Math.floor(Math.random() * 999999);
-
+                const seed = options.seed || Math.floor(Math.random() * 999999);
                 const fullPrompt = prompt.trim() + style;
                 const cacheKey = `img_${fullPrompt}_${width}_${height}`;
 
-                /* Check cache */
                 const cached = getCached(cacheKey);
-                if (cached) {
-                    resolve(cached);
-                    return;
-                }
+                if (cached) { resolve(cached); return; }
 
                 const url = CONFIG.POLLINATIONS_IMG +
                     encodeURIComponent(fullPrompt) +
@@ -138,11 +116,8 @@ const ApiClient = (function () {
                     `&nologo=true&seed=${seed}`;
 
                 emit('image:start', { prompt, url });
-
-                /* Track request */
                 requestCount++;
                 const reqId = requestCount;
-
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
 
@@ -155,40 +130,29 @@ const ApiClient = (function () {
                 img.onload = function () {
                     clearTimeout(timer);
                     const result = {
-                        image: img,
-                        url,
-                        prompt: fullPrompt,
-                        width: img.naturalWidth,
-                        height: img.naturalHeight,
-                        reqId,
-                        cached: false
+                        image: img, url, prompt: fullPrompt,
+                        width: img.naturalWidth, height: img.naturalHeight,
+                        reqId, cached: false
                     };
                     setCache(cacheKey, result);
                     emit('image:success', result);
                     resolve(result);
                 };
-
                 img.onerror = function () {
                     clearTimeout(timer);
                     const err = new Error('Image generation failed');
                     emit('image:error', { reqId, prompt, error: err });
                     reject(err);
                 };
-
                 img.src = url;
             });
         },
-
-        /* Generate multiple variations */
         generateVariations(prompt, count = 3, options = {}) {
             const promises = [];
             for (let i = 0; i < count; i++) {
-                promises.push(
-                    this.generate(prompt, {
-                        ...options,
-                        seed: Math.floor(Math.random() * 999999)
-                    })
-                );
+                promises.push(this.generate(prompt, {
+                    ...options, seed: Math.floor(Math.random() * 999999)
+                }));
             }
             return Promise.allSettled(promises);
         }
@@ -196,21 +160,16 @@ const ApiClient = (function () {
 
     /* ===== AI TEXT / CHAT ===== */
     const TextAPI = {
-
         async ask(prompt, options = {}) {
             if (!prompt || !prompt.trim()) {
                 throw new Error('Prompt is required');
             }
-
             const maxWords = options.maxWords || 30;
             const language = options.language || 'hinglish';
             const context = options.context || '';
-
             const systemPrompt = [
                 'You are Arjona AI, a friendly design assistant.',
-                language === 'hinglish'
-                    ? 'Reply in fun Hinglish (mix Hindi+English).'
-                    : '',
+                language === 'hinglish' ? 'Reply in fun Hinglish (mix Hindi+English).' : '',
                 `Keep reply under ${maxWords} words.`,
                 context ? `Context: ${context}` : '',
                 'Be helpful, fun and encouraging.',
@@ -222,34 +181,25 @@ const ApiClient = (function () {
             if (cached) return cached;
 
             emit('text:start', { prompt });
-
             try {
                 const res = await fetchWithRetry(
-                    CONFIG.POLLINATIONS_TEXT +
-                    encodeURIComponent(systemPrompt),
-                    {},
-                    2
+                    CONFIG.POLLINATIONS_TEXT + encodeURIComponent(systemPrompt),
+                    {}, 2
                 );
-
                 let text = await res.text();
                 text = (text || '').trim().substring(0, 300);
-
                 if (!text || text.length < 2) {
                     text = this.getFallback();
                 }
-
                 const result = { text, prompt, cached: false };
                 setCache(cacheKey, result);
                 emit('text:success', result);
                 return result;
-
             } catch (err) {
                 emit('text:error', { prompt, error: err });
                 return { text: this.getFallback(), prompt, error: true };
             }
         },
-
-        /* Fallback responses */
         getFallback() {
             const responses = [
                 'Mast kaam kar rahe ho! 🔥',
@@ -261,17 +211,13 @@ const ApiClient = (function () {
             ];
             return responses[Math.floor(Math.random() * responses.length)];
         },
-
-        /* Stream response (word by word) */
         async askStream(prompt, onWord, options = {}) {
             const result = await this.ask(prompt, options);
             const words = result.text.split(' ');
-
             for (let i = 0; i < words.length; i++) {
                 await delay(80);
                 onWord(words.slice(0, i + 1).join(' '), i === words.length - 1);
             }
-
             return result;
         }
     };
@@ -280,11 +226,9 @@ const ApiClient = (function () {
     const StatusAPI = {
         async checkConnectivity() {
             try {
-                const res = await fetchWithTimeout(
-                    CONFIG.POLLINATIONS_TEXT +
-                    encodeURIComponent('hi'),
-                    {},
-                    5000
+                await fetchWithTimeout(
+                    CONFIG.POLLINATIONS_TEXT + encodeURIComponent('hi'),
+                    {}, 5000
                 );
                 return { online: true, latency: 0 };
             } catch (e) {
@@ -295,31 +239,23 @@ const ApiClient = (function () {
 
     /* ===== VOICE API ===== */
     const VoiceAPI = {
-
         recognition: null,
         synthesis: window.speechSynthesis || null,
         isListening: false,
-
-        /* Start voice input */
         startListening(options = {}) {
             return new Promise((resolve, reject) => {
-                const SR = window.SpeechRecognition ||
-                    window.webkitSpeechRecognition;
-
+                const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
                 if (!SR) {
                     reject(new Error('Speech recognition not supported'));
                     return;
                 }
-
                 const rec = new SR();
                 rec.lang = options.lang || 'en-US';
                 rec.continuous = false;
                 rec.interimResults = options.interim || false;
-
                 this.recognition = rec;
                 this.isListening = true;
                 emit('voice:start', {});
-
                 rec.onresult = e => {
                     const transcript = e.results[0][0].transcript;
                     const confidence = e.results[0][0].confidence;
@@ -327,31 +263,24 @@ const ApiClient = (function () {
                     emit('voice:result', { transcript, confidence });
                     resolve({ transcript, confidence });
                 };
-
                 rec.onerror = e => {
                     this.isListening = false;
                     emit('voice:error', { error: e.error });
                     reject(new Error('Voice error: ' + e.error));
                 };
-
                 rec.onend = () => {
                     this.isListening = false;
                     emit('voice:end', {});
                 };
-
                 rec.start();
             });
         },
-
-        /* Stop listening */
         stopListening() {
             if (this.recognition) {
                 this.recognition.stop();
                 this.isListening = false;
             }
         },
-
-        /* Text to speech */
         speak(text, options = {}) {
             if (!this.synthesis) return;
             try {
@@ -367,38 +296,28 @@ const ApiClient = (function () {
                 console.warn('[VoiceAPI] TTS error:', e);
             }
         },
-
-        /* Stop speaking */
         stopSpeaking() {
             if (this.synthesis) this.synthesis.cancel();
         },
-
         get supported() {
-            return !!(window.SpeechRecognition ||
-                window.webkitSpeechRecognition);
+            return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
         }
     };
 
     /* ===== ANALYTICS (LOCAL) ===== */
     const Analytics = {
-
         events: [],
         MAX_EVENTS: 200,
-
         track(name, data = {}) {
             const event = {
-                name,
-                data,
+                name, data,
                 time: Date.now(),
                 timestamp: new Date().toISOString()
             };
             this.events.push(event);
-            if (this.events.length > this.MAX_EVENTS) {
-                this.events.shift();
-            }
+            if (this.events.length > this.MAX_EVENTS) this.events.shift();
             emit('analytics:track', event);
         },
-
         getReport() {
             const counts = {};
             this.events.forEach(e => {
@@ -410,7 +329,6 @@ const ApiClient = (function () {
                 recent: this.events.slice(-10)
             };
         },
-
         clear() { this.events = []; }
     };
 
@@ -421,16 +339,8 @@ const ApiClient = (function () {
         Status: StatusAPI,
         Voice: VoiceAPI,
         Analytics,
-
-        /* Event system */
-        on,
-        off,
-        emit,
-
-        /* Config */
+        on, off, emit,
         config: CONFIG,
-
-        /* Stats */
         get stats() {
             return {
                 requests: requestCount,
@@ -439,7 +349,6 @@ const ApiClient = (function () {
             };
         }
     };
-
 })();
 
 /* ===== GLOBAL EXPORT ===== */
@@ -447,49 +356,25 @@ window.ApiClient = ApiClient;
 
 /* ===== CONNECT TO EXISTING FUNCTIONS ===== */
 document.addEventListener('DOMContentLoaded', function () {
-
-    /* Listen to API events */
     ApiClient.on('image:start', function () {
-        if (typeof updateLog === 'function') {
-            updateLog('Generating AI image...');
-        }
+        if (typeof updateLog === 'function') updateLog('Generating AI image...');
     });
-
     ApiClient.on('image:success', function (data) {
-        if (typeof updateLog === 'function') {
-            updateLog('AI image ready! ✓');
-        }
-        if (typeof toast === 'function') {
-            toast('AI image generated!', 'success');
-        }
+        if (typeof updateLog === 'function') updateLog('AI image ready! ✓');
+        if (typeof toast === 'function') toast('AI image generated!', 'success');
     });
-
     ApiClient.on('image:error', function (data) {
-        if (typeof toast === 'function') {
-            toast('Image generation failed. Try again!', 'error');
-        }
+        if (typeof toast === 'function') toast('Image generation failed. Try again!', 'error');
     });
-
     ApiClient.on('text:success', function (data) {
-        if (typeof updateLog === 'function') {
-            updateLog(data.text);
-        }
+        if (typeof updateLog === 'function') updateLog(data.text);
     });
-
     ApiClient.on('voice:start', function () {
-        if (typeof updateLog === 'function') {
-            updateLog('Listening... 🎤');
-        }
-        if (typeof toast === 'function') {
-            toast('Listening... speak now!', 'info', 2000);
-        }
+        if (typeof updateLog === 'function') updateLog('Listening... 🎤');
+        if (typeof toast === 'function') toast('Listening... speak now!', 'info', 2000);
     });
-
     ApiClient.on('voice:result', function (data) {
-        if (typeof toast === 'function') {
-            toast('Got it: "' + data.transcript + '"', 'success', 2000);
-        }
+        if (typeof toast === 'function') toast('Got it: "' + data.transcript + '"', 'success', 2000);
     });
-
-    console.log('🔌 API Client Ready!');
+    console.log('API Client Ready!');
 });
