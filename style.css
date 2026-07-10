@@ -464,7 +464,7 @@ body {
 .resize-v:hover { background: var(--ac) }
 
 /* ===== LAYOUT ===== */
-.middle { display: flex; flex: 1; overflow: hidden; min-height: 0 }
+.middle { display: flex; flex: 1; overflow: hidden; min-height: 0; transition: padding-bottom 0.35s cubic-bezier(0.4,0,0.2,1); }
 .left-sb {
     width: 230px; min-width: 160px; max-width: 380px;
     display: flex; flex-shrink: 0;
@@ -1122,7 +1122,7 @@ canvas#mainCanvas {
     .templates-grid { grid-template-columns: repeat(2, 1fr) }
     .export-formats { grid-template-columns: 1fr }
     .modal-side { max-width: 90% }
-    body.sheet-open canvas#mainCanvas { max-height: calc(100dvh - 44px - 76px - 54px - 60px) }
+    /* Canvas height no longer restricted on sheet open, it moves up smoothly */
     body.sheet-open .canvas-area { z-index: 100; position: relative }
     body.sheet-open .mob-sheet-overlay { background: rgba(0, 0, 0, 0.3); backdrop-filter: none }
     #cropOptionsBar { bottom: 70px }

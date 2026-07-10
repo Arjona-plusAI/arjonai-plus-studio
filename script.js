@@ -1546,7 +1546,7 @@ function askAI(context, showInChat) {
     });
     messages.push({ role: 'user', content: context });
     showTyping(true);
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
+    fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_KEY },
         body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: messages, max_tokens: 150, temperature: 0.8 })
@@ -1849,6 +1849,20 @@ function closeMobMenu() {
 
 /* ===== BOTTOM SHEETS ===== */
 var currentSheet = null, sheetDragging = false, sheetStartY = 0;
+function moveCanvasForSheet(sheet) {
+    var middle = document.querySelector('.middle');
+    if (!middle || !sheet) return;
+    var sheetHeight = sheet.offsetHeight;
+    // 54px is bottom bar height, 10px for margin so canvas doesn't touch sheet
+    var paddingBottom = sheetHeight + 64; 
+    middle.style.paddingBottom = paddingBottom + 'px';
+}
+
+function resetCanvasPosition() {
+    var middle = document.querySelector('.middle');
+    if (middle) middle.style.paddingBottom = '0px';
+}
+
 function openBottomSheet(btn, sheetId) {
     var btns = document.querySelectorAll('.mob-bar-btn');
     for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
@@ -1860,6 +1874,7 @@ function openBottomSheet(btn, sheetId) {
         overlay.classList.remove('open');
         document.body.classList.remove('sheet-open');
         currentSheet = null;
+        resetCanvasPosition();
         return;
     }
     var prevSheet = currentSheet ? document.getElementById(currentSheet) : null;
@@ -1871,6 +1886,7 @@ function openBottomSheet(btn, sheetId) {
                 newSheet.classList.add('open'); overlay.classList.add('open');
                 document.body.classList.add('sheet-open'); currentSheet = sheetId;
                 if (sheetId === 'sheetHist') renderHistList();
+                setTimeout(function() { moveCanvasForSheet(newSheet); }, 50);
             }
         }, 200);
     } else {
@@ -1879,6 +1895,7 @@ function openBottomSheet(btn, sheetId) {
             newSheet.classList.add('open'); overlay.classList.add('open');
             document.body.classList.add('sheet-open'); currentSheet = sheetId;
             if (sheetId === 'sheetHist') renderHistList();
+            setTimeout(function() { moveCanvasForSheet(newSheet); }, 50);
         }
     }
 }
@@ -1890,6 +1907,7 @@ function closeBottomSheet() {
     currentSheet = null;
     var btns = document.querySelectorAll('.mob-bar-btn');
     for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+    resetCanvasPosition();
 }
 function sheetDragStart(e) { sheetDragging = true; sheetStartY = e.touches[0].clientY; }
 function sheetDragMove(e) {
@@ -2406,16 +2424,6 @@ function mD(pt) {
             var mi = document.getElementById('mobTxtIn');
             if (di) di.value = hit.text || '';
             if (mi) mi.value = hit.text || '';
-            if (window.innerWidth <= 900 && !document.body.classList.contains('sheet-open')) {
-                var typeBtn = document.querySelector('[data-sheet="sheetText"]');
-                if (typeBtn) openBottomSheet(typeBtn, 'sheetText');
-            }
-        }
-        if (hit.type === 'image') {
-            if (window.innerWidth <= 900 && !document.body.classList.contains('sheet-open')) {
-                var moveBtn = document.querySelector('[data-sheet="sheetTrans"]');
-                if (moveBtn) openBottomSheet(moveBtn, 'sheetTrans');
-            }
         }
     } else {
         selId = null; drag = false;
@@ -3258,6 +3266,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (now - lastTapTime < 300 && Math.abs(pt.x - lastTapX) < 30 && Math.abs(pt.y - lastTapY) < 30) {
             var hit = null;
             for (var i = els.length - 1; i >= 0; i--) { if (hitEl(els[i], pt.x, pt.y)) { hit = els[i]; break; } }
+            
             if (hit && hit.type === 'text') {
                 selId = hit.id; sUI();
                 var di = document.getElementById('txtIn');
@@ -3272,6 +3281,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     var textTab = document.querySelector('[data-p="bpText"]');
                     if (textTab) bpTab(textTab);
                     setTimeout(function () { if (di) { di.focus(); di.select(); } }, 200);
+                }
+            } 
+            else if (hit && hit.type === 'image') {
+                selId = hit.id; sUI(); showCornerHandles(hit);
+                if (window.innerWidth <= 900) {
+                    var moveBtn = document.querySelector('[data-sheet="sheetTrans"]');
+                    if (moveBtn) openBottomSheet(moveBtn, 'sheetTrans');
+                } else {
+                    var transTab = document.querySelector('[data-p="bpTrans"]');
+                    if (transTab) bpTab(transTab);
                 }
             }
             lastTapTime = 0;
