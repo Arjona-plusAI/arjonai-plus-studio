@@ -7,22 +7,23 @@
     <meta name="description" content="Arjona AI Studio — Professional AI Image Editor">
     <meta name="theme-color" content="#7F3DFF">
     <title>Arjona AI Studio</title>
+    <base href="/">
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="manifest" href="/manifest.json">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Arjona AI">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
-    <meta name="msapplication-TileImage" content="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <meta name="msapplication-TileImage" content="/icons/icon-192.png">
     <meta name="msapplication-TileColor" content="#7F3DFF">
 </head>
 
 <body>
     <div id="splashScreen" class="splash">
         <div class="splash-inner">
-            <div class="splash-logo"><img src="logo.png" alt="Arjona AI"></div>
+            <div class="splash-logo"><img src="/logo.png" alt="Arjona AI"></div>
             <div class="splash-brand">Arjona<span class="ai-tag">+AI</span></div>
             <div class="splash-bar">
                 <div class="splash-fill" id="splashFill"></div>
@@ -69,7 +70,7 @@
         onclick="if(event.target===this)closeDownload()">
         <div class="download-box">
             <div class="download-head">
-                <div class="download-logo"><img src="logo.png" alt="A"></div>
+                <div class="download-logo"><img src="/logo.png" alt="A"></div>
                 <div class="download-title-wrap">
                     <h2>Get Arjona AI Studio</h2>
                     <p>Install as App — Free Forever!</p>
@@ -247,7 +248,7 @@
 
     <header class="topbar">
         <div class="tb-l">
-            <div class="logo"><img src="logo.png" alt="Arjona AI"></div><span class="brand">Arjona<span
+            <div class="logo"><img src="/logo.png" alt="Arjona AI"></div><span class="brand">Arjona<span
                     class="ai-tag">+AI</span></span>
         </div>
         <div class="tb-desk">
@@ -289,7 +290,7 @@
     <div id="mobMenuOverlay" class="mob-menu-overlay" onclick="closeMobMenu()"></div>
     <div id="mobMenuDrawer" class="mob-menu-drawer">
         <div class="mob-menu-head">
-            <div class="logo" style="width:28px;height:28px"><img src="logo.png" alt="A"></div><span
+            <div class="logo" style="width:28px;height:28px"><img src="/logo.png" alt="A"></div><span
                 style="font-weight:800;font-size:13px">Arjona <span class="ai-tag">+AI</span></span>
         </div>
         <button class="mob-menu-item" onclick="openTemplates();closeMobMenu()"><i data-lucide="layout-template"
@@ -1071,15 +1072,15 @@
         </div>
     </div>
 
-    <script src="animations.js"></script>
-    <script src="physics.js"></script>
-    <script src="api-client.js"></script>
-    <script src="install.js"></script>
-    <script src="script.js"></script>
+    <script src="/animations.js"></script>
+    <script src="/physics.js"></script>
+    <script src="/api-client.js"></script>
+    <script src="/install.js"></script>
+    <script src="/script.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
                     .then(function (reg) { console.log('SW Registered:', reg.scope); })
                     .catch(function (err) { console.warn('SW Error:', err); });
             });
@@ -1088,7 +1089,7 @@
     <script>
         if (window.lucide) lucide.createIcons();
     </script>
-    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'a190f99e0876a74e',t:'MTc4MzcwMTI1Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
+    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'a19fad4f0ebaa803',t:'MTc4Mzg1NTQxOA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
 </body>
 
 </html>
