@@ -1,8 +1,8 @@
 [{
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
         "namespace": "android_app",
         "package_name": "com.arjonai.studio",
-        "sha256_cert_fingerprints": ["80:56:74:CE:E8:34:C1:95:9C:8E:E4:4D:64:F7:E4:FA:6C:56:2B:FD:F2:4D:BD:E2:43:1D:04:4F:7C:73:26:2D"]
-    }
-}]
+        "sha256_cert_fingerprints": ["E2:E6:5E:1B:01:18:3C:86:6D:4C:7D:4A:A9:87:ED:08:91:D5:41:5A:2C:18:7C:C1:61:67:B2:B9:BC:C0:F0:6B"]
+      }
+    }]
