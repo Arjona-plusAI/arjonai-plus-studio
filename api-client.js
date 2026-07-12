@@ -2,6 +2,7 @@
    ARJONA +AI STUDIO — API CLIENT
    Professional API Handler v2.0 (Cleaned)
    ============================================ */
+
 'use strict';
 
 const ApiClient = (function () {
@@ -22,7 +23,7 @@ const ApiClient = (function () {
 
     /* ===== CACHE ===== */
     const cache = new Map();
-    const CACHE_TTL = 5 * 60 * 1000;
+    const CACHE_TTL = 5  *60*  1000;
 
     function getCached(key) {
         const item = cache.get(key);
@@ -61,7 +62,7 @@ const ApiClient = (function () {
                 const res = await fetchWithTimeout(url, options);
                 if (res.ok || res.status === 200) return res;
                 if (res.status === 429) {
-                    await delay(CONFIG.RETRY_DELAY * (i + 1) * 2);
+                    await delay(CONFIG.RETRY_DELAY  *(i + 1)*  2);
                     continue;
                 }
                 throw new Error('HTTP ' + res.status);
@@ -187,10 +188,12 @@ const ApiClient = (function () {
                     {}, 2
                 );
                 let text = await res.text();
-                text = (text || '').trim().substring(0, 300);
-                if (!text || text.length < 2) {
+                text = (text || '').trim();
+                const low = text.toLowerCase();
+                if (!text || text.length < 2 || low.startsWith('<!doctype') || low.startsWith('<html') || low.includes('<body') || low.includes('<script') || low.charAt(0) === '<') {
                     text = this.getFallback();
                 }
+                text = text.substring(0, 300);
                 const result = { text, prompt, cached: false };
                 setCache(cacheKey, result);
                 emit('text:success', result);

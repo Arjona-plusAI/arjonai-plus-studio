@@ -51,21 +51,31 @@ def generate_image():
 @app.route('/api/chat', methods=['POST'])
 def ai_chat():
     try:
-        data   = request.get_json()
+        data = request.get_json(silent=True) or {}
         prompt = data.get('prompt', '')
+
+        if not prompt and data.get('messages'):
+            try:
+                prompt = data['messages'][-1].get('content', '')
+            except Exception:
+                prompt = ''
 
         if not prompt:
             return jsonify({'error': 'Prompt required'}), 400
 
         response = requests.get(
-            'https://text.pollinations.ai/' +
-            requests.utils.quote(prompt),
+            'https://text.pollinations.ai/' + requests.utils.quote(prompt),
             timeout=15
         )
 
+        reply = (response.text or '').strip()
+        low = reply.lower()
+        if ('<html' in low) or ('<!doctype' in low) or ('<body' in low) or ('<script' in low) or low.startswith('<'):
+            reply = 'Hello boss! Main ready hoon — bolo kya design help chahiye?'
+
         return jsonify({
             'success': True,
-            'reply': response.text.strip()[:200]
+            'reply': reply[:200]
         })
 
     except Exception as e:
