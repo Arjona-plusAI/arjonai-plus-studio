@@ -1911,7 +1911,7 @@ function closeMobMenu() {
 
 /* ===== BOTTOM SHEETS ===== */
 var currentSheet = null, sheetDragging = false, sheetStartY = 0, sheetSwitching = false;
-var sheetOrder = ['sheetTrans', 'sheetText', 'sheetFx', 'sheetMask', 'sheetGrade', 'sheetMore', 'sheetHist'];
+var sheetOrder = ['sheetTrans', 'sheetText', 'sheetFx', 'sheetMask', 'sheetGrade', 'sheetLib', 'sheetMore', 'sheetHist'];
 var pendingSheetId = null, pendingSheetBtn = null;
 
 function moveCanvasForSheet(sheet) {
