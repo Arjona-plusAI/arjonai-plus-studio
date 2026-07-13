@@ -14,7 +14,7 @@
     ],
     "orientation": "any",
     "background_color": "#0D1117",
-    "theme_color": "#7F3DFF",
+    "theme_color": "#0D1117", 
     "lang": "en",
     "dir": "ltr",
     "launch_handler": {

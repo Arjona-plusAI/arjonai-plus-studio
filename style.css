@@ -877,6 +877,7 @@ body {
 }
 
 @keyframes typingBounce {
+
     0%,
     80%,
     100% {
@@ -1540,6 +1541,7 @@ body.sheet-open .sel-bar {
 }
 
 @keyframes bl {
+
     0%,
     100% {
         opacity: 1
@@ -1572,11 +1574,11 @@ body.sheet-open .sel-bar {
 }
 
 [data-theme="dark"] .canvas-area {
-    background: linear-gradient(180deg, #0D1117, #1A1F2B)
+    background: #0D1117
 }
 
 [data-theme="light"] .canvas-area {
-    background: linear-gradient(180deg, #F8FAFF, #EEF1FF)
+    background: #F8FAFF
 }
 
 .cv-frame {
@@ -3016,9 +3018,7 @@ canvas#mainCanvas {
     position: fixed;
     inset: 0;
     z-index: 999999;
-    background: radial-gradient(circle at top, rgba(0, 198, 255, .12), transparent 40%),
-        radial-gradient(circle at bottom right, rgba(127, 61, 255, .12), transparent 40%),
-        var(--bg);
+    background: var(--bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3106,6 +3106,7 @@ canvas#mainCanvas {
 }
 
 @keyframes pulseFade {
+
     0%,
     100% {
         opacity: .5
