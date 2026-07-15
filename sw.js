@@ -5,7 +5,7 @@
    Cleaned: duplicate listeners removed, artifacts removed
    ============================================ */
 
-var CACHE = 'arjona-v13';
+var CACHE = 'arjona-v14';
 var FILES = [
     '/',
     '/index.html',
