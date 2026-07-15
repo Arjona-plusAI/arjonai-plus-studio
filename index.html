@@ -456,393 +456,73 @@
         </main>
     </div>
 
-    <div class="mob-bottom-bar" id="mobBottomBar">
-        <div class="mob-resize-handle" id="mobResizeBottom" ontouchstart="startMobResize(event,'bottom')"
-            onmousedown="startMobResize(event,'bottom')">
-            <div class="mob-resize-pill"></div>
-        </div>
-        <div class="mob-bottom-inner">
-            <div class="mob-bottom-scroll"><button class="mob-bar-btn" data-sheet="sheetTrans"
-                    onclick="openBottomSheet(this,'sheetTrans')"><i data-lucide="move" class="mbb-icon"></i><span
-                        class="mbb-label">Move</span></button><button class="mob-bar-btn" data-sheet="sheetText"
-                    onclick="openBottomSheet(this,'sheetText')"><i data-lucide="type" class="mbb-icon"></i><span
-                        class="mbb-label">Type</span></button><button class="mob-bar-btn" data-sheet="sheetFx"
-                    onclick="openBottomSheet(this,'sheetFx')"><i data-lucide="wand-2" class="mbb-icon"></i><span
-                        class="mbb-label">FX</span></button><button class="mob-bar-btn" data-sheet="sheetMask"
-                    onclick="openBottomSheet(this,'sheetMask')"><i data-lucide="scissors" class="mbb-icon"></i><span
-                        class="mbb-label">Mask</span></button><button class="mob-bar-btn" data-sheet="sheetGrade"
-                    onclick="openBottomSheet(this,'sheetGrade')"><i data-lucide="sliders-horizontal"
-                        class="mbb-icon"></i><span class="mbb-label">Grade</span></button><button class="mob-bar-btn"
-                    data-sheet="sheetLib" onclick="openBottomSheet(this,'sheetLib')"><i data-lucide="layers"
-                        class="mbb-icon"></i><span class="mbb-label">Library</span></button><button class="mob-bar-btn"
-                    data-sheet="sheetMore" onclick="openBottomSheet(this,'sheetMore')"><i data-lucide="grid-2x2"
-                        class="mbb-icon"></i><span class="mbb-label">More</span></button></div><button
-                class="mob-del-btn" onclick="layerOp('del')" title="Delete"><i data-lucide="trash-2"
-                    class="mob-del-icon"></i><span class="mob-del-label">Del</span></button>
-        </div>
-    </div>
-    <div class="mob-sheet-overlay" id="mobSheetOverlay" onclick="closeBottomSheet()"></div>
+    <div class="mob-panel-system" id="mobPanelSystem">
+        <div class="mob-panel-inner">
+            <!-- Side Panel Tool Editor (Strict 134px overlay, does NOT expand to top of canvas or outside this area) -->
+            <div class="mob-tool-editor" id="mobToolEditor">
+                <div class="mob-tool-editor-header">
+                    <!-- Back Button displaying ONLY an icon without the word "Back" -->
+                    <button class="editor-back-btn" onclick="closeMobToolEditor()" title="Back">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
 
-    <div class="mob-sheet" id="sheetTrans">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Transform</div>
-            </div>
-            <div class="sheet-slider-group">
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Scale</label><span id="mob-v-sc">100%</span></div><input
-                        type="range" id="mob-sl-sc" min="10" max="300" value="100"
-                        oninput="setProp('scale',this.value)">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Rotate</label><span id="mob-v-rt">0°</span></div><input
-                        type="range" id="mob-sl-rt" min="0" max="360" value="0" oninput="setProp('rotate',this.value)">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Opacity</label><span id="mob-v-op">100%</span></div><input
-                        type="range" id="mob-sl-op" min="0" max="100" value="100"
-                        oninput="setProp('opacity',this.value)">
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="mob-sheet" id="sheetText">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Typography</div>
-            </div><input type="text" id="mobTxtIn" placeholder="Type your text here..." oninput="setTxt(this.value)"
-                class="sheet-text-input">
-            <div class="sheet-sld">
-                <div class="sheet-sld-head"><label>Size</label><span id="mob-v-fs">60px</span></div><input type="range"
-                    id="mob-sl-fs" min="12" max="300" value="60"
-                    oninput="setProp('fontSize',this.value);document.getElementById('mob-v-fs').innerText=this.value+'px'">
-            </div>
-            <div class="sheet-row">
-                <div class="sheet-color-pick"><label>Color</label><input type="color" id="mobTxtCol" value="#7F3DFF"
-                        onchange="setProp('color',this.value)"></div><select id="mobFontSel"
-                    onchange="setProp('font',this.value)" class="sheet-select">
-                    <option value="Arial">Arial</option>
-                    <option value="Impact">Impact</option>
-                    <option value="Georgia">Georgia</option>
-                    <option value="Verdana">Verdana</option>
-                    <option value="Courier New">Courier</option>
-                </select>
-            </div>
-            <div class="sheet-slider-group">
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Spacing</label><span>0px</span></div><input type="range" min="-5"
-                        max="30" value="0" oninput="setProp('charSpacing',this.value)">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Curve</label><span>0°</span></div><input type="range" min="-180"
-                        max="180" value="0" oninput="setProp('curve',this.value)">
-                </div>
-            </div>
-            <div class="sheet-section-title">Text Effects</div>
-            <div class="text-effects-grid"><button class="txt-fx-btn"
-                    onclick="applyTextEffect('neon')">Neon</button><button class="txt-fx-btn"
-                    onclick="applyTextEffect('3d')">3D</button><button class="txt-fx-btn"
-                    onclick="applyTextEffect('rainbow')">Rainbow</button><button class="txt-fx-btn"
-                    onclick="applyTextEffect('fire')">Fire</button><button class="txt-fx-btn"
-                    onclick="applyTextEffect('ice')">Ice</button><button class="txt-fx-btn"
-                    onclick="applyTextEffect('chrome')">Chrome</button><button class="txt-fx-btn"
-                    onclick="applyTextEffect('gold')">Gold</button><button class="txt-fx-btn"
-                    onclick="applyTextEffect('vintage')">Vintage</button></div>
-        </div>
-    </div>
-    <div class="mob-sheet" id="sheetFx">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Effects</div>
-            </div>
-            <div class="sheet-fx-grid">
-                <div class="fx-item"><input type="color" value="#000000" onchange="setProp('strokeColor',this.value)">
-                    <div class="sheet-sld">
-                        <div class="sheet-sld-head"><label>Stroke</label><span>2px</span></div><input type="range"
-                            min="0" max="15" value="2" oninput="setProp('stroke',this.value)">
+                    <!-- Title/Subtitle removed to simplify header: keeping only essentials like tick mark, cross button, and back arrow -->
+                    <div class="editor-header-spacer" style="flex:1;"></div>
+
+                    <!-- Confirmation (Tick) & Cancellation (Cross) simplified to be PLAIN without color boxes -->
+                    <div class="editor-actions" id="mobEditorConfirmGroup">
+                        <button class="editor-action-btn btn-tick" title="Confirm" onclick="confirmMobToolEditor()">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <button class="editor-action-btn btn-cross" title="Cancel" onclick="cancelMobToolEditor()">
+                            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
                     </div>
                 </div>
-                <div class="fx-item"><input type="color" value="#7F3DFF" onchange="setProp('glowColor',this.value)">
-                    <div class="sheet-sld">
-                        <div class="sheet-sld-head"><label>Glow</label><span>8px</span></div><input type="range" min="0"
-                            max="40" value="8" oninput="setProp('glow',this.value)">
-                    </div>
+
+                <!-- Compact Editor Content Body (Vertical scrollbar enabled if items exceed height) -->
+                <div class="mob-tool-editor-body" id="mobEditorBody"></div>
+            </div>
+
+            <!-- Tool Row Bar (`tool raw bar`) with horizontal scrollbar & square buttons with rounded corners -->
+            <div class="tool-raw-bar" id="toolRowBar"></div>
+
+            <!-- Bottom Tabs Wrap (`mob-bottom-bar`) with horizontal scrollbar/slider & min-width buttons -->
+            <div class="mob-bottom-bar" id="mobBottomBar">
+                <div class="mob-bottom-scroll">
+                    <button class="mob-bar-btn active" data-tab="move" onclick="selectBottomTab('move', this)">
+                        <svg viewBox="0 0 24 24" fill="none"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="19 9 22 12 19 15"></polyline><polyline points="9 19 12 22 15 19"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+                        <span>Move</span>
+                    </button>
+                    <button class="mob-bar-btn" data-tab="type" onclick="selectBottomTab('type', this)">
+                        <svg viewBox="0 0 24 24" fill="none"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+                        <span>Type</span>
+                    </button>
+                    <button class="mob-bar-btn" data-tab="fx" onclick="selectBottomTab('fx', this)">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M15 4V2"></path><path d="M15 16v-2"></path><path d="M8 9h2"></path><path d="M20 9h2"></path><path d="M17.8 11.8l1.4 1.4"></path><path d="M10.6 4.6l1.4 1.4"></path><path d="M11 11l-8 8"></path></svg>
+                        <span>FX</span>
+                    </button>
+                    <button class="mob-bar-btn" data-tab="mask" onclick="selectBottomTab('mask', this)">
+                        <svg viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><line x1="20" y1="4" x2="8.12" y2="15.88"></line><line x1="14.47" y1="14.48" x2="20" y2="20"></line><line x1="8.12" y1="8.12" x2="12" y2="12"></line></svg>
+                        <span>Mask</span>
+                    </button>
+                    <button class="mob-bar-btn" data-tab="grade" onclick="selectBottomTab('grade', this)">
+                        <svg viewBox="0 0 24 24" fill="none"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                        <span>Grade</span>
+                    </button>
+                    <button class="mob-bar-btn" data-tab="library" onclick="selectBottomTab('library', this)">
+                        <svg viewBox="0 0 24 24" fill="none"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                        <span>Library</span>
+                    </button>
+                    <button class="mob-bar-btn" data-tab="more" onclick="selectBottomTab('more', this)">
+                        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                        <span>More</span>
+                    </button>
                 </div>
-                <div class="fx-item"><input type="color" value="#1e293b" onchange="setProp('threeDColor',this.value)">
-                    <div class="sheet-sld">
-                        <div class="sheet-sld-head"><label>3D Depth</label><span>0px</span></div><input type="range"
-                            min="0" max="25" value="0" oninput="setProp('threeDDepth',this.value)">
-                    </div>
-                </div>
-                <div class="fx-item"><input type="color" value="#000000"
-                        onchange="setProp('innerShadowColor',this.value)">
-                    <div class="sheet-sld">
-                        <div class="sheet-sld-head"><label>Shadow</label><span>0px</span></div><input type="range"
-                            min="0" max="20" value="0" oninput="setProp('innerShadow',this.value)">
-                    </div>
-                </div>
-            </div>
-            <div class="sheet-slider-group">
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Emboss</label><span>0px</span></div><input type="range" min="0"
-                        max="10" value="0" oninput="setProp('emboss',this.value)">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Reflection</label><span>0%</span></div><input type="range"
-                        min="0" max="80" value="0" oninput="setProp('reflection',this.value)">
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="mob-sheet" id="sheetMask">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Mask & Erase</div>
-            </div>
-            <div class="sheet-mode-row"><button class="sheet-mode-btn active" onclick="setMode('select',this)"><i
-                        data-lucide="mouse-pointer-2"></i>Select</button><button class="sheet-mode-btn"
-                    onclick="setMode('eraser',this)"><i data-lucide="eraser"></i>Erase</button><button
-                    class="sheet-mode-btn" onclick="setMode('mask',this)"><i data-lucide="square"></i>Mask</button>
-            </div>
-            <div class="sheet-sld" style="margin:12px 0">
-                <div class="sheet-sld-head"><label>Brush Size</label><span>25px</span></div><input type="range" min="5"
-                    max="100" value="25" oninput="bSz=parseInt(this.value)">
-            </div>
-            <div class="sheet-btn-group"><button class="sheet-action-btn" onclick="restMask()" style="flex:1"><i
-                        data-lucide="rotate-ccw"></i>Restore Mask</button></div>
-            <div class="sheet-btn-group" style="margin-top:8px"><button class="sheet-primary-btn"
-                    onclick="aiObjectRemove()" style="flex:1"><i data-lucide="sparkles"></i>AI Object Remove</button>
-            </div>
-        </div>
-    </div>
-    <div class="mob-sheet" id="sheetGrade">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Grading</div>
-                <div class="sheet-grade-actions"><button class="sheet-action-btn"
-                        onclick="resetGrade()">Reset</button><button class="sheet-primary-btn"
-                        onclick="applyGrade()">Apply</button></div>
-            </div>
-            <div class="sheet-slider-group">
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Brightness</label><span>0</span></div><input type="range"
-                        id="mob-sg-br" min="-100" max="100" value="0" oninput="liveG()">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Contrast</label><span>0</span></div><input type="range"
-                        id="mob-sg-ct" min="-100" max="100" value="0" oninput="liveG()">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Saturation</label><span>0</span></div><input type="range"
-                        id="mob-sg-sa" min="-100" max="100" value="0" oninput="liveG()">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Temperature</label><span>0</span></div><input type="range"
-                        id="mob-sg-te" min="-50" max="50" value="0" oninput="liveG()">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Vignette</label><span>0</span></div><input type="range"
-                        id="mob-sg-vi" min="0" max="100" value="0" oninput="liveG()">
-                </div>
-                <div class="sheet-sld">
-                    <div class="sheet-sld-head"><label>Grain</label><span>0</span></div><input type="range"
-                        id="mob-sg-gr" min="0" max="50" value="0" oninput="liveG()">
-                </div>
-            </div>
-            <div class="grade-tabs"><button class="grade-tab active" onclick="switchGradeTab(this, 'gradePixArt')"><i
-                        data-lucide="wand-2"></i>PixArt</button><button class="grade-tab"
-                    onclick="switchGradeTab(this, 'gradePresets')"><i data-lucide="palette"></i>Presets</button></div>
-            <div class="grade-tab-content active" id="gradePixArt">
-                <div class="horizontal-scroll"><button class="hs-btn" onclick="pixelate(10)"><i
-                            data-lucide="grid-3x3"></i><span>Pixel</span></button><button class="hs-btn"
-                        onclick="applyBlur(4)"><i data-lucide="droplet"></i><span>Blur</span></button><button
-                        class="hs-btn" onclick="applySharpen()"><i
-                            data-lucide="zap"></i><span>Sharp</span></button><button class="hs-btn"
-                        onclick="grayscale()"><i data-lucide="circle-half"></i><span>Gray</span></button><button
-                        class="hs-btn" onclick="posterize(4)"><i
-                            data-lucide="palette"></i><span>Poster</span></button><button class="hs-btn"
-                        onclick="edgeDetect()"><i data-lucide="square-dashed"></i><span>Edge</span></button><button
-                        class="hs-btn" onclick="applyNoise(25)"><i
-                            data-lucide="waves"></i><span>Noise</span></button><button class="hs-btn"
-                        onclick="invertColors()"><i data-lucide="contrast"></i><span>Invert</span></button></div>
-            </div>
-            <div class="grade-tab-content" id="gradePresets">
-                <div class="horizontal-scroll"><button class="hs-btn hs-preset" onclick="gradeP('cinematic')"><span
-                            class="hs-thumb"
-                            style="background:linear-gradient(135deg,#1a1a2e,#e94560)"></span><span>Cinema</span></button><button
-                        class="hs-btn hs-preset" onclick="gradeP('vintage')"><span class="hs-thumb"
-                            style="background:linear-gradient(135deg,#d4a574,#8b5e3c)"></span><span>Vintage</span></button><button
-                        class="hs-btn hs-preset" onclick="gradeP('warm')"><span class="hs-thumb"
-                            style="background:linear-gradient(135deg,#ff9a3c,#ff6b35)"></span><span>Warm</span></button><button
-                        class="hs-btn hs-preset" onclick="gradeP('cool')"><span class="hs-thumb"
-                            style="background:linear-gradient(135deg,#4facfe,#00f2fe)"></span><span>Cool</span></button><button
-                        class="hs-btn hs-preset" onclick="gradeP('noir')"><span class="hs-thumb"
-                            style="background:linear-gradient(135deg,#000,#333)"></span><span>Noir</span></button><button
-                        class="hs-btn hs-preset" onclick="gradeP('neon')"><span class="hs-thumb"
-                            style="background:linear-gradient(135deg,#f953c6,#b91d73)"></span><span>Neon</span></button><button
-                        class="hs-btn hs-preset" onclick="gradeP('golden')"><span class="hs-thumb"
-                            style="background:linear-gradient(135deg,#f7971e,#ffd200)"></span><span>Golden</span></button><button
-                        class="hs-btn hs-preset" onclick="gradeP('hdr')"><span class="hs-thumb"
-                            style="background:linear-gradient(135deg,#0f2027,#2c5364)"></span><span>HDR</span></button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="mob-sheet" id="sheetLib">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">Library</div>
-            </div>
-            <div class="more-section-label">Layers</div>
-            <div class="more-h-scroll">
-                <div class="more-h-tool" onclick="document.getElementById('qImg').click();closeBottomSheet()"><i
-                        data-lucide="upload"></i><span>Upload</span></div>
-                <div class="more-h-tool" onclick="layerOp('front');closeBottomSheet()"><i
-                        data-lucide="chevron-up"></i><span>Front</span></div>
-                <div class="more-h-tool" onclick="layerOp('back');closeBottomSheet()"><i
-                        data-lucide="chevron-down"></i><span>Back</span></div>
-                <div class="more-h-tool" onclick="layerOp('dup');closeBottomSheet()"><i
-                        data-lucide="copy"></i><span>Dup</span></div>
-                <div class="more-h-tool" onclick="openLayers();closeBottomSheet()"><i
-                        data-lucide="layers"></i><span>Panel</span></div>
-            </div>
-            <div class="more-section-label">Align</div>
-            <div class="more-h-scroll">
-                <div class="more-h-tool" onclick="alignEl('l');closeBottomSheet()"><i
-                        data-lucide="align-left"></i><span>Left</span></div>
-                <div class="more-h-tool" onclick="alignEl('c');closeBottomSheet()"><i
-                        data-lucide="align-center"></i><span>Center</span></div>
-                <div class="more-h-tool" onclick="alignEl('r');closeBottomSheet()"><i
-                        data-lucide="align-right"></i><span>Right</span></div>
-                <div class="more-h-tool" onclick="alignEl('m');closeBottomSheet()"><i
-                        data-lucide="align-vertical-justify-center"></i><span>Middle</span></div>
-            </div>
-            <div class="more-section-label">Background</div>
-            <div class="more-h-scroll">
-                <div class="more-h-tool" onclick="openGradient();closeBottomSheet()"><i
-                        data-lucide="paintbrush"></i><span>Gradient</span></div>
-                <div class="more-h-tool" onclick="toggleGrid();closeBottomSheet()"><i
-                        data-lucide="grid"></i><span>Grid</span></div>
-                <div class="more-h-tool" onclick="openTemplates();closeBottomSheet()"><i
-                        data-lucide="layout-template"></i><span>Templates</span></div>
-                <div class="more-h-tool" onclick="openProjects();closeBottomSheet()"><i
-                        data-lucide="folder"></i><span>Projects</span></div>
-            </div>
-        </div>
-    </div>
-    <div class="mob-sheet" id="sheetMore">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">More Tools</div>
-            </div>
-            <div class="more-section-label">Quick Tools</div>
-            <div class="more-h-scroll">
-                <div class="more-h-tool" onclick="toggleCropMode();closeBottomSheet()"><i
-                        data-lucide="crop"></i><span>Crop</span></div>
-                <div class="more-h-tool" onclick="toggleDrawMode();closeBottomSheet()"><i
-                        data-lucide="pencil"></i><span>Draw</span></div>
-                <div class="more-h-tool" onclick="flipH();closeBottomSheet()"><i
-                        data-lucide="flip-horizontal"></i><span>Flip</span></div>
-                <div class="more-h-tool" onclick="addText();closeBottomSheet()"><i
-                        data-lucide="type"></i><span>Text</span></div>
-                <div class="more-h-tool" onclick="document.getElementById('qImg').click();closeBottomSheet()"><i
-                        data-lucide="upload"></i><span>Upload</span></div>
-                <div class="more-h-tool" onclick="openExport();closeBottomSheet()"><i
-                        data-lucide="download"></i><span>Export</span></div>
-            </div>
-            <div class="more-section-label">Creative</div>
-            <div class="more-h-scroll">
-                <div class="more-h-tool" onclick="openStickers();closeBottomSheet()"><i
-                        data-lucide="smile"></i><span>Stickers</span></div>
-                <div class="more-h-tool" onclick="openFrames();closeBottomSheet()"><i
-                        data-lucide="image"></i><span>Frames</span></div>
-                <div class="more-h-tool" onclick="openGradient();closeBottomSheet()"><i
-                        data-lucide="paintbrush"></i><span>Gradient</span></div>
-                <div class="more-h-tool" onclick="openCollage();closeBottomSheet()"><i
-                        data-lucide="layout-grid"></i><span>Collage</span></div>
-                <div class="more-h-tool" onclick="openWatermark();closeBottomSheet()"><i
-                        data-lucide="stamp"></i><span>Mark</span></div>
-                <div class="more-h-tool" onclick="openQRGen();closeBottomSheet()"><i
-                        data-lucide="qr-code"></i><span>QR</span></div>
-            </div>
-            <div class="more-section-label">Shapes</div>
-            <div class="more-h-scroll">
-                <div class="more-h-tool" onclick="addShape('rectangle');closeBottomSheet()"><i
-                        data-lucide="square"></i><span>Rect</span></div>
-                <div class="more-h-tool" onclick="addShape('circle');closeBottomSheet()"><i
-                        data-lucide="circle"></i><span>Circle</span></div>
-                <div class="more-h-tool" onclick="addShape('triangle');closeBottomSheet()"><i
-                        data-lucide="triangle"></i><span>Triangle</span></div>
-                <div class="more-h-tool" onclick="addShape('star');closeBottomSheet()"><i
-                        data-lucide="star"></i><span>Star</span></div>
-                <div class="more-h-tool" onclick="addShape('arrow');closeBottomSheet()"><i
-                        data-lucide="arrow-right"></i><span>Arrow</span></div>
-                <div class="more-h-tool" onclick="addShape('heart');closeBottomSheet()"><i
-                        data-lucide="heart"></i><span>Heart</span></div>
-            </div>
-            <div class="more-section-label">AI & Utility</div>
-            <div class="more-h-scroll">
-                <div class="more-h-tool" onclick="aiAutoEnhance();closeBottomSheet()"><i
-                        data-lucide="sparkles"></i><span>Enhance</span></div>
-                <div class="more-h-tool" onclick="aiObjectRemove();closeBottomSheet()"><i
-                        data-lucide="eraser"></i><span>Remove</span></div>
-                <div class="more-h-tool" onclick="openTemplates();closeBottomSheet()"><i
-                        data-lucide="layout-template"></i><span>Tplts</span></div>
-                <div class="more-h-tool" onclick="openProjects();closeBottomSheet()"><i
-                        data-lucide="folder"></i><span>Proj</span></div>
-                <div class="more-h-tool" onclick="openLayers();closeBottomSheet()"><i
-                        data-lucide="layers"></i><span>Layers</span></div>
-                <div class="more-h-tool" onclick="toggleEyedropper();closeBottomSheet()"><i
-                        data-lucide="pipette"></i><span>Pick</span></div>
-                <div class="more-h-tool" onclick="toggleGrid();closeBottomSheet()"><i
-                        data-lucide="grid"></i><span>Grid</span></div>
-                <div class="more-h-tool" onclick="bgRemove('smart');closeBottomSheet()"><i
-                        data-lucide="wand-2"></i><span>SmartBG</span></div>
-                <div class="more-h-tool" onclick="bgRemove('color');closeBottomSheet()"><i
-                        data-lucide="palette"></i><span>ColorBG</span></div>
-            </div>
-        </div>
-    </div>
-    <div class="mob-sheet" id="sheetHist">
-        <div class="mob-sheet-handle" ontouchstart="sheetDragStart(event)" ontouchmove="sheetDragMove(event)"
-            ontouchend="sheetDragEnd()">
-            <div class="mob-sheet-bar"></div>
-        </div>
-        <div class="mob-sheet-body">
-            <div class="mob-sheet-header">
-                <div class="mob-sheet-title">History</div><button class="sheet-action-btn"
-                    onclick="clearHistory()">Clear</button>
-            </div>
-            <div id="histList" class="hist-list">
-                <div class="hist-empty">No history yet</div>
+                <button class="mob-del-btn" onclick="if(typeof layerOp==='function') layerOp('del');" title="Delete">
+                    <svg viewBox="0 0 24 24" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    <span>Del</span>
+                </button>
             </div>
         </div>
     </div>
@@ -1145,6 +825,6 @@
         if (window.lucide) lucide.createIcons();
     </script>
     <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'a1a679148eda3c37',t:'MTc4MzkyNjY3OQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1b884946c9e5f1d',t:'MTc4NDExNTg5NA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 
 </html>

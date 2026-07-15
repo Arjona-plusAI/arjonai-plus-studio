@@ -1915,16 +1915,11 @@ var sheetOrder = ['sheetTrans', 'sheetText', 'sheetFx', 'sheetMask', 'sheetGrade
 var pendingSheetId = null, pendingSheetBtn = null;
 
 function moveCanvasForSheet(sheet) {
-    var middle = document.querySelector('.middle');
-    if (!middle || !sheet) return;
-    var bottomOffset = window.innerWidth <= 420 ? 60 : 64;
-    var sheetHeight = sheet.offsetHeight || 260;
-    middle.style.paddingBottom = (sheetHeight + bottomOffset) + 'px';
+    return; // Neutralized to keep canvas completely still and exactly centered
 }
 
 function resetCanvasPosition() {
-    var middle = document.querySelector('.middle');
-    if (middle) middle.style.paddingBottom = '0px';
+    return; // Neutralized to keep canvas completely still and exactly centered
 }
 
 function getSheetDirection(fromId, toId) {
@@ -2758,6 +2753,14 @@ function sUI() {
         setVal('sl-em', el.emboss || 0); setTxt_('v-em', (el.emboss || 0) + 'px');
         setVal('sl-rf', el.reflection || 0); setTxt_('v-rf', (el.reflection || 0) + '%');
     }
+
+    if (typeof currentMobEditorOption !== 'undefined' && currentMobEditorOption && document.getElementById('mobToolEditor') && document.getElementById('mobToolEditor').classList.contains('open')) {
+        var bodyEl = document.getElementById('mobEditorBody');
+        if (bodyEl) {
+            bodyEl.innerHTML = '';
+            renderMobEditorControls(currentMobEditorOption, bodyEl);
+        }
+    }
 }
 
 /* ===== TEXT RENDERING ===== */
@@ -3502,4 +3505,787 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', function () {
         if (confirm('New update available! Reload to update?')) window.location.reload();
     });
+}
+
+/* ============================================================================
+   NEW MOBILE BOTTOM PANEL SYSTEM CONTROLLER
+   Replaces old sliding sheets while preserving 100% of underlying app functions
+   ============================================================================ */
+
+var currentMobTab = "move";
+var currentMobSubCategory = null;
+var currentMobEditorOption = null;
+var currentMobCategoryTitle = "Settings";
+
+var mobTabDefinitions = {
+    move: {
+        title: "Move",
+        options: [
+            { id: "scale", label: "Scale", requiresSelection: true },
+            { id: "rotate", label: "Rotate", requiresSelection: true },
+            { id: "opacity", label: "Opacity", requiresSelection: true }
+        ]
+    },
+    type: {
+        title: "Type",
+        options: [
+            { id: "typography", label: "Typography", requiresSelection: true },
+            { id: "text_effects", label: "Text effects", requiresSelection: true }
+        ]
+    },
+    fx: {
+        title: "FX",
+        options: [
+            { id: "effects", label: "Effects", requiresSelection: true },
+            { id: "emboss", label: "Emboss", requiresSelection: true },
+            { id: "reflection", label: "Reflection", requiresSelection: true }
+        ]
+    },
+    mask: {
+        title: "Mask",
+        options: [
+            { id: "mask_brush", label: "Mask & Erase", requiresSelection: true },
+            { id: "restore_mask", label: "Restore Mask", requiresSelection: true },
+            { id: "ai_remove", label: "AI Remove", requiresSelection: true }
+        ]
+    },
+    grade: {
+        title: "Grade",
+        options: [
+            { id: "grading", label: "Grading", requiresSelection: true },
+            { id: "pixart", label: "PIXART", requiresSelection: true },
+            { id: "presets", label: "Presets", requiresSelection: true }
+        ]
+    },
+    library: {
+        title: "Library",
+        isHierarchical: true,
+        primaryCategories: [
+            { id: "lib_layers", label: "Layers" },
+            { id: "lib_align", label: "Align" },
+            { id: "lib_bg", label: "Background" }
+        ],
+        secondaryOptions: {
+            lib_layers: [
+                { id: "upload", label: "Upload", isDirectAction: true },
+                { id: "front", label: "Front", isDirectAction: true },
+                { id: "back", label: "Back", isDirectAction: true },
+                { id: "dup", label: "Dup", isDirectAction: true },
+                { id: "panel", label: "Panel", isDirectAction: false }
+            ],
+            lib_align: [
+                { id: "left", label: "Left", isDirectAction: true },
+                { id: "center", label: "Center", isDirectAction: true },
+                { id: "right", label: "Right", isDirectAction: true },
+                { id: "middle", label: "Middle", isDirectAction: true }
+            ],
+            lib_bg: [
+                { id: "gradient", label: "Gradiant", isDirectAction: false },
+                { id: "grid", label: "Grid", isDirectAction: false },
+                { id: "templates", label: "Templates", isDirectAction: false, excludeConfirm: true },
+                { id: "projects", label: "Projects", isDirectAction: true }
+            ]
+        }
+    },
+    more: {
+        title: "More",
+        isHierarchical: true,
+        primaryCategories: [
+            { id: "more_quick", label: "Quick tools" },
+            { id: "more_creative", label: "Creative" },
+            { id: "more_shapes", label: "Shapes" },
+            { id: "more_ai", label: "AI & Utility" }
+        ],
+        secondaryOptions: {
+            more_quick: [
+                { id: "crop", label: "Crop", isDirectAction: false, excludeConfirm: true, requiresSelection: true },
+                { id: "draw", label: "Draw", isDirectAction: false },
+                { id: "flip", label: "Flip", isDirectAction: true },
+                { id: "more_text", label: "Text", isDirectAction: true },
+                { id: "upload", label: "Upload", isDirectAction: true },
+                { id: "export", label: "Export", isDirectAction: true }
+            ],
+            more_creative: [
+                { id: "stickers", label: "Stickers", isDirectAction: false },
+                { id: "frames", label: "Frames", isDirectAction: false },
+                { id: "gradient", label: "Gradiant", isDirectAction: false },
+                { id: "collage", label: "Collage", isDirectAction: false },
+                { id: "mark", label: "Mark", isDirectAction: false },
+                { id: "qr", label: "QR Code", isDirectAction: false }
+            ],
+            more_shapes: [
+                { id: "shape_rect", label: "Rectangle", isDirectAction: false },
+                { id: "shape_circle", label: "Circle", isDirectAction: false },
+                { id: "shape_tri", label: "Triangle", isDirectAction: false },
+                { id: "shape_star", label: "Star", isDirectAction: false },
+                { id: "shape_arrow", label: "Arrow", isDirectAction: false },
+                { id: "shape_heart", label: "Heart", isDirectAction: false }
+            ],
+            more_ai: [
+                { id: "enhance", label: "Enhance", isDirectAction: false, requiresSelection: true },
+                { id: "remove", label: "Remove", isDirectAction: false, requiresSelection: true },
+                { id: "templates_lib", label: "Tpits", isDirectAction: false, excludeConfirm: true },
+                { id: "layers_lib", label: "Layers", isDirectAction: false },
+                { id: "pick", label: "Pick Color", isDirectAction: false },
+                { id: "grid_lib", label: "Grid", isDirectAction: false },
+                { id: "smart_bg", label: "Smart BG", isDirectAction: false, requiresSelection: true },
+                { id: "color_bg", label: "Color BG", isDirectAction: false }
+            ]
+        }
+    }
+};
+
+window.addEventListener("DOMContentLoaded", function() {
+    selectBottomTab("move");
+});
+
+function selectBottomTab(tabId, btnElement) {
+    currentMobTab = tabId;
+    currentMobSubCategory = null;
+    closeMobToolEditor();
+
+    var btns = document.querySelectorAll(".mob-bar-btn");
+    for (var i = 0; i < btns.length; i++) {
+        if (btns[i].getAttribute("data-tab") === tabId) {
+            btns[i].classList.add("active");
+        } else {
+            btns[i].classList.remove("active");
+        }
+    }
+    renderToolRowBar();
+}
+
+function renderToolRowBar() {
+    var rowEl = document.getElementById("toolRowBar");
+    if (!rowEl) return;
+    rowEl.innerHTML = "";
+    var def = mobTabDefinitions[currentMobTab];
+    if (!def) return;
+
+    if (def.isHierarchical) {
+        if (!currentMobSubCategory) {
+            def.primaryCategories.forEach(function(cat) {
+                var btn = document.createElement("button");
+                btn.className = "tool-raw-btn";
+                btn.innerHTML = '<span>' + cat.label + '</span>';
+                btn.onclick = function() {
+                    currentMobSubCategory = cat.id;
+                    renderToolRowBar();
+                };
+                rowEl.appendChild(btn);
+            });
+        } else {
+            var subList = def.secondaryOptions[currentMobSubCategory] || [];
+            var primaryObj = def.primaryCategories.find(function(c) { return c.id === currentMobSubCategory; });
+            var primaryLabel = primaryObj ? primaryObj.label : "Back";
+
+            var backBtn = document.createElement("button");
+            backBtn.className = "tool-raw-btn secondary-back";
+            backBtn.innerHTML = '&larr; <span>' + primaryLabel + '</span>';
+            backBtn.onclick = function() {
+                currentMobSubCategory = null;
+                closeMobToolEditor();
+                renderToolRowBar();
+            };
+            rowEl.appendChild(backBtn);
+
+            subList.forEach(function(opt) {
+                var btn = document.createElement("button");
+                btn.className = "tool-raw-btn";
+                btn.innerHTML = '<span>' + opt.label + '</span>';
+                if (currentMobEditorOption && currentMobEditorOption.id === opt.id) btn.classList.add("active");
+                btn.onclick = function() {
+                    var allRowBtns = rowEl.querySelectorAll(".tool-raw-btn");
+                    for(var j=0; j<allRowBtns.length; j++) allRowBtns[j].classList.remove("active");
+                    btn.classList.add("active");
+
+                    if (opt.isDirectAction) {
+                        handleDirectMobAction(opt.id);
+                    } else {
+                        openMobToolEditor(opt, primaryLabel);
+                    }
+                };
+                rowEl.appendChild(btn);
+            });
+        }
+    } else {
+        def.options.forEach(function(opt) {
+            var btn = document.createElement("button");
+            btn.className = "tool-raw-btn";
+            btn.innerHTML = '<span>' + opt.label + '</span>';
+            if (currentMobEditorOption && currentMobEditorOption.id === opt.id) btn.classList.add("active");
+            btn.onclick = function() {
+                var allRowBtns = rowEl.querySelectorAll(".tool-raw-btn");
+                for(var j=0; j<allRowBtns.length; j++) allRowBtns[j].classList.remove("active");
+                btn.classList.add("active");
+
+                if (opt.isDirectAction) {
+                    handleDirectMobAction(opt.id);
+                } else {
+                    openMobToolEditor(opt, def.title);
+                }
+            };
+            rowEl.appendChild(btn);
+        });
+    }
+}
+
+function handleDirectMobAction(actionId) {
+    if (actionId === "upload") { var f = document.getElementById('qImg'); if (f) f.click(); }
+    else if (actionId === "front") { if (typeof layerOp === 'function') layerOp('front'); }
+    else if (actionId === "back") { if (typeof layerOp === 'function') layerOp('back'); }
+    else if (actionId === "dup") { if (typeof layerOp === 'function') layerOp('dup'); }
+    else if (actionId === "left") { if (typeof alignEl === 'function') alignEl('l'); }
+    else if (actionId === "center") { if (typeof alignEl === 'function') alignEl('c'); }
+    else if (actionId === "right") { if (typeof alignEl === 'function') alignEl('r'); }
+    else if (actionId === "middle") { if (typeof alignEl === 'function') alignEl('m'); }
+    else if (actionId === "flip") { if (typeof flipH === 'function') flipH(); }
+    else if (actionId === "more_text") { if (typeof addText === 'function') addText(); }
+    else if (actionId === "export") { if (typeof openExport === 'function') openExport(); }
+    else if (actionId === "projects") { if (typeof openProjects === 'function') openProjects(); }
+}
+
+function openMobToolEditor(optionObj, categoryTitle) {
+    currentMobEditorOption = optionObj;
+    currentMobCategoryTitle = categoryTitle || "Settings";
+    var panel = document.getElementById("mobToolEditor");
+    var confirmGroup = document.getElementById("mobEditorConfirmGroup");
+    var bodyEl = document.getElementById("mobEditorBody");
+    if (!panel || !bodyEl) return;
+
+    if (optionObj.id === "crop" || optionObj.id === "templates" || optionObj.id === "templates_lib" || optionObj.excludeConfirm) {
+        if (confirmGroup) confirmGroup.style.display = "none";
+    } else {
+        if (confirmGroup) confirmGroup.style.display = "flex";
+    }
+
+    bodyEl.innerHTML = "";
+    renderMobEditorControls(optionObj, bodyEl);
+
+    panel.classList.add("open");
+}
+
+function closeMobToolEditor() {
+    var panel = document.getElementById("mobToolEditor");
+    if (panel) panel.classList.remove("open");
+    currentMobEditorOption = null;
+
+    var rowBtns = document.querySelectorAll(".tool-raw-btn");
+    for(var j=0; j<rowBtns.length; j++) rowBtns[j].classList.remove("active");
+}
+
+function confirmMobToolEditor() {
+    closeMobToolEditor();
+}
+
+function cancelMobToolEditor() {
+    closeMobToolEditor();
+}
+
+function checkMobSelectionOrBanner(opt, container) {
+    if (!opt.requiresSelection) return true;
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    if (!el && typeof els !== 'undefined' && els.length > 0 && typeof selId !== 'undefined' && selId) {
+        for (var i=0; i<els.length; i++) { if (els[i].id === selId) { el = els[i]; break; } }
+    }
+    if (!el) {
+        var hasItems = typeof els !== 'undefined' && els.length > 0;
+        var banner = document.createElement("div");
+        banner.id = "mobUnselectedBanner";
+        banner.style.cssText = "background:rgba(255,61,113,0.15); border:1px solid rgba(255,61,113,0.4); border-radius:8px; padding:6px 10px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-shrink:0; margin-bottom:4px;";
+        banner.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:16px;">⚠️</span>
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:#FF3D71;">Things are not selected.</div>
+                    <div style="font-size:9px; color:var(--tx2);">Please select an item on canvas or add one.</div>
+                </div>
+            </div>
+            <button class="editor-back-btn" style="width:auto; height:26px; padding:0 8px; background:var(--ac); color:#fff; font-size:10px; font-weight:700; border:none; flex-shrink:0;" onclick="if(typeof els !== 'undefined' && els.length > 0) { selId = els[els.length-1].id; if(typeof sUI==='function') sUI(); if(typeof R==='function') R(); openMobToolEditor(currentMobEditorOption, currentMobCategoryTitle); } else { var f = document.getElementById('qImg'); if (f) f.click(); else if(typeof addText==='function') { addText(); openMobToolEditor(currentMobEditorOption, currentMobCategoryTitle); } }">${hasItems ? 'Select Top Item' : '+ Add Item'}</button>
+        `;
+        container.appendChild(banner);
+        return false;
+    }
+    return true;
+}
+
+function renderMobEditorControls(opt, container) {
+    var hasSelection = checkMobSelectionOrBanner(opt, container);
+
+    if (opt.id === "scale") {
+        var curSc = 100;
+        if (hasSelection && typeof findEl === 'function' && selId && findEl(selId) && findEl(selId).scale) curSc = Math.round(findEl(selId).scale);
+        var sld = document.createElement("div");
+        sld.className = "sheet-sld";
+        sld.innerHTML = `
+            <div class="sheet-sld-head"><label>Scale</label><span id="val-sc">${curSc}%</span></div>
+            <input type="range" min="10" max="300" value="${curSc}" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof setProp==='function') setProp('scale', this.value); var el=document.getElementById('val-sc'); if(el) el.innerText=this.value+'%';">
+        `;
+        container.appendChild(sld);
+    } else if (opt.id === "rotate") {
+        var curRt = 0;
+        if (hasSelection && typeof findEl === 'function' && selId && findEl(selId) && findEl(selId).rotate) curRt = Math.round(findEl(selId).rotate);
+        var sld = document.createElement("div");
+        sld.className = "sheet-sld";
+        sld.innerHTML = `
+            <div class="sheet-sld-head"><label>Rotate</label><span id="val-rt">${curRt}°</span></div>
+            <input type="range" min="0" max="360" value="${curRt}" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof setProp==='function') setProp('rotate', this.value); var el=document.getElementById('val-rt'); if(el) el.innerText=this.value+'°';">
+        `;
+        container.appendChild(sld);
+    } else if (opt.id === "opacity") {
+        var curOp = 100;
+        if (hasSelection && typeof findEl === 'function' && selId && findEl(selId) && findEl(selId).opacity !== undefined) curOp = Math.round(findEl(selId).opacity);
+        var sld = document.createElement("div");
+        sld.className = "sheet-sld";
+        sld.innerHTML = `
+            <div class="sheet-sld-head"><label>Opacity</label><span id="val-op">${curOp}%</span></div>
+            <input type="range" min="0" max="100" value="${curOp}" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof setProp==='function') setProp('opacity', this.value); var el=document.getElementById('val-op'); if(el) el.innerText=this.value+'%';">
+        `;
+        container.appendChild(sld);
+    } else if (opt.id === "typography") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <input type="text" class="text-input-field" placeholder="Click to add or edit text..." ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof setTxt==='function') setTxt(this.value);">
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Font Size</label><span id="val-fs">60px</span></div>
+                <input type="range" min="12" max="300" value="60" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof setProp==='function') setProp('fontSize', this.value); var el=document.getElementById('val-fs'); if(el) el.innerText=this.value+'px';">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Color &amp; Font Style</label><span>Pick</span></div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="color" value="#FFFFFF" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} onchange="if(typeof setProp==='function') setProp('color', this.value);" style="width:36px; height:24px; border:none; background:transparent; cursor:pointer;">
+                    <select onchange="if(typeof setProp==='function') setProp('font', this.value);" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} class="text-input-field" style="flex:1; padding:4px 8px;">
+                        <option value="Arial">Arial</option>
+                        <option value="Impact">Impact</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Courier New">Courier</option>
+                        <option value="Times New Roman">Times</option>
+                    </select>
+                </div>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "text_effects") {
+        var effects = ["Neon", "3D", "Rainbow", "Fire", "Ice", "Chrome", "Gold", "Vintage"];
+        var wrap = document.createElement("div");
+        wrap.className = "options-grid-compact";
+        effects.forEach(function(fx) {
+            wrap.innerHTML += `<div class="option-card" ${!hasSelection ? 'style="opacity:0.4; pointer-events:none;"' : ''} onclick="if(typeof applyTextEffect==='function') applyTextEffect('${fx.toLowerCase()}'); selectMobOptionCard(this);"><span>${fx}</span></div>`;
+        });
+        container.appendChild(wrap);
+    } else if (opt.id === "effects") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Stroke</label><span>Color Box</span></div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="color" value="#000000" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} onchange="if(typeof setProp==='function') setProp('strokeColor', this.value);" style="width:28px; height:22px; border:none; background:transparent; cursor:pointer;">
+                    <input type="range" min="0" max="15" value="2" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof setProp==='function') setProp('stroke', this.value);" style="flex:1;">
+                </div>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Glow</label><span>Color Box</span></div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="color" value="#58A6FF" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} onchange="if(typeof setProp==='function') setProp('glowColor', this.value);" style="width:28px; height:22px; border:none; background:transparent; cursor:pointer;">
+                    <input type="range" min="0" max="40" value="8" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof setProp==='function') setProp('glow', this.value);" style="flex:1;">
+                </div>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>3D Depth</label><span>Color Box</span></div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="color" value="#1e293b" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} onchange="if(typeof setProp==='function') setProp('threeDColor', this.value);" style="width:28px; height:22px; border:none; background:transparent; cursor:pointer;">
+                    <input type="range" min="0" max="25" value="0" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof setProp==='function') setProp('threeDDepth', this.value);" style="flex:1;">
+                </div>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Shadow</label><span>Color Box</span></div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="color" value="#000000" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} onchange="if(typeof setProp==='function') setProp('innerShadowColor', this.value);" style="width:28px; height:22px; border:none; background:transparent; cursor:pointer;">
+                    <input type="range" min="0" max="20" value="0" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof setProp==='function') setProp('innerShadow', this.value);" style="flex:1;">
+                </div>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "emboss" || opt.id === "reflection") {
+        var propName = opt.id === "emboss" ? "emboss" : "reflection";
+        var sld = document.createElement("div");
+        sld.className = "sheet-sld";
+        sld.innerHTML = `
+            <div class="sheet-sld-head"><label>${opt.label} Intensity</label><span>50%</span></div>
+            <input type="range" min="0" max="100" value="50" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof setProp==='function') setProp('${propName}', this.value);">
+        `;
+        container.appendChild(sld);
+    } else if (opt.id === "mask_brush") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="display:flex; gap:6px;">
+                <button class="editor-back-btn" style="flex:1; width:auto; height:30px; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof setMode==='function') setMode('select', this);">Select</button>
+                <button class="editor-back-btn" style="flex:1; width:auto; height:30px; background:var(--ac); color:#fff; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof setMode==='function') setMode('eraser', this);">Erase</button>
+                <button class="editor-back-btn" style="flex:1; width:auto; height:30px; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof setMode==='function') setMode('mask', this);">Mask</button>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Brush Size</label><span>25px</span></div>
+                <input type="range" min="5" max="100" value="25" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="bSz=parseInt(this.value)">
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "restore_mask") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="background:var(--bd); border-radius:6px; padding:6px 10px; font-size:11px; color:var(--tx1); display:flex; justify-content:space-between; align-items:center;">
+                <span>Restore original image mask</span>
+                <button class="editor-back-btn" style="width:auto; height:28px; padding:0 12px; background:var(--ac); color:#fff; font-weight:700; border:none; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof restMask==='function') restMask(); closeMobToolEditor();">Restore Mask</button>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "ai_remove" || opt.id === "remove") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="background:rgba(255,61,113,0.12); border:1px solid rgba(255,61,113,0.4); border-radius:6px; padding:6px 10px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:var(--dn);">AI Object Remove</div>
+                    <div style="font-size:9px; color:var(--tx2);">Erase unwanted objects from selected layer</div>
+                </div>
+                <button class="editor-back-btn" style="width:auto; height:28px; padding:0 12px; background:var(--dn); color:#fff; font-weight:700; border:none; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof aiObjectRemove==='function') aiObjectRemove(); closeMobToolEditor();">🧹 Erase Object</button>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Eraser Brush Size</label><span>25px</span></div>
+                <input type="range" min="5" max="100" value="25" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="if(typeof bSz !== 'undefined') bSz=parseInt(this.value)">
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "enhance") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="background:linear-gradient(135deg, rgba(88,166,255,0.2), rgba(163,113,247,0.2)); border:1px solid var(--ac); border-radius:6px; padding:6px 10px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:var(--tx1);">AI Image Auto Enhance</div>
+                    <div style="font-size:9px; color:var(--tx2);">Instantly boosts sharpness, contrast &amp; clarity</div>
+                </div>
+                <button class="editor-back-btn" style="width:auto; height:28px; padding:0 12px; background:linear-gradient(135deg, #58A6FF, #A371F7); color:#fff; font-weight:700; border:none; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof aiAutoEnhance==='function') aiAutoEnhance(); closeMobToolEditor();">⚡ Run Enhance</button>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Clarity Boost</label><span>80%</span></div>
+                <input type="range" min="0" max="100" value="80" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''}>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "smart_bg") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="background:linear-gradient(135deg, rgba(35,134,54,0.2), rgba(88,166,255,0.2)); border:1px solid #48BB78; border-radius:6px; padding:6px 10px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:#48BB78;">AI Smart Background Remover</div>
+                    <div style="font-size:9px; color:var(--tx2);">One-click smart subject extraction &amp; BG cut</div>
+                </div>
+                <button class="editor-back-btn" style="width:auto; height:28px; padding:0 12px; background:#238636; color:#fff; font-weight:700; border:none; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof aiSmartBG==='function') aiSmartBG(); else if(typeof removeBg==='function') removeBg(); closeMobToolEditor();">✨ Cut Background</button>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Edge Smoothing</label><span>15%</span></div>
+                <input type="range" min="0" max="50" value="15" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''}>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "grading") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Brightness</label><span>0</span></div>
+                <input type="range" id="mob-sg-br" min="-100" max="100" value="0" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="var el=document.getElementById('sg-br'); if(el){el.value=this.value;} if(typeof liveG==='function') liveG();">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Contrast</label><span>0</span></div>
+                <input type="range" id="mob-sg-ct" min="-100" max="100" value="0" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="var el=document.getElementById('sg-ct'); if(el){el.value=this.value;} if(typeof liveG==='function') liveG();">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Saturation</label><span>0</span></div>
+                <input type="range" id="mob-sg-sa" min="-100" max="100" value="0" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="var el=document.getElementById('sg-sa'); if(el){el.value=this.value;} if(typeof liveG==='function') liveG();">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Temperature</label><span>0</span></div>
+                <input type="range" id="mob-sg-te" min="-50" max="50" value="0" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="var el=document.getElementById('sg-te'); if(el){el.value=this.value;} if(typeof liveG==='function') liveG();">
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button class="editor-back-btn" style="flex:1; width:auto; height:28px; background:var(--ac); color:#fff; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof applyGrade==='function') applyGrade(); closeMobToolEditor();">Apply Grade</button>
+                <button class="editor-back-btn" style="flex:1; width:auto; height:28px; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof resetGrade==='function') resetGrade();">Reset</button>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "pixart") {
+        var items = ["Pixel", "Blur", "Sharp", "Gray", "Poster", "Edge", "Noise", "Invert"];
+        var wrap = document.createElement("div");
+        wrap.className = "options-grid-compact";
+        items.forEach(function(item) {
+            wrap.innerHTML += `<div class="option-card" ${!hasSelection ? 'style="opacity:0.4; pointer-events:none;"' : ''} onclick="if(typeof selectMobOptionCard==='function') selectMobOptionCard(this); if('${item}'==='Pixel') {if(typeof pixelate==='function') pixelate(10);} else if('${item}'==='Blur') {if(typeof applyBlur==='function') applyBlur(4);} else if('${item}'==='Sharp') {if(typeof applySharpen==='function') applySharpen();} else if('${item}'==='Gray') {if(typeof grayscale==='function') grayscale();} else if('${item}'==='Poster') {if(typeof posterize==='function') posterize(4);} else if('${item}'==='Edge') {if(typeof edgeDetect==='function') edgeDetect();} else if('${item}'==='Noise') {if(typeof applyNoise==='function') applyNoise(25);} else if('${item}'==='Invert') {if(typeof invertColors==='function') invertColors();}"><span>${item}</span></div>`;
+        });
+        container.appendChild(wrap);
+    } else if (opt.id === "presets") {
+        var presets = ["cinematic", "vintage", "warm", "cool", "noir", "neon", "golden", "hdr"];
+        var wrap = document.createElement("div");
+        wrap.className = "options-grid-compact";
+        presets.forEach(function(p) {
+            wrap.innerHTML += `<div class="option-card" ${!hasSelection ? 'style="opacity:0.4; pointer-events:none;"' : ''} onclick="if(typeof gradeP==='function') gradeP('${p}'); if(typeof selectMobOptionCard==='function') selectMobOptionCard(this);"><span>${p.toUpperCase()}</span></div>`;
+        });
+        container.appendChild(wrap);
+    } else if (opt.id === "qr") {
+        // QR Code generator: works regardless of selection!
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="display:flex; gap:6px; align-items:center;">
+                <input type="text" id="mobQrInput" class="text-input-field" placeholder="Enter URL or text for QR code..." value="https://arjona.ai" style="flex:1;">
+                <button class="editor-back-btn" style="width:auto; height:28px; padding:0 12px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="generateMobQRCode()">Generate QR</button>
+            </div>
+            <div style="display:flex; gap:12px; align-items:center; font-size:11px; color:var(--tx2);">
+                <div style="display:flex; align-items:center; gap:4px;"><label>FG:</label><input type="color" id="mobQrFg" value="#000000" style="width:24px; height:22px; border:none; background:transparent; cursor:pointer;"></div>
+                <div style="display:flex; align-items:center; gap:4px;"><label>BG:</label><input type="color" id="mobQrBg" value="#ffffff" style="width:24px; height:22px; border:none; background:transparent; cursor:pointer;"></div>
+                <span style="font-size:10px; color:var(--tx3);">Creates &amp; adds QR directly to canvas</span>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "mark") {
+        // Watermark / Mark generator: works regardless of selection!
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="display:flex; gap:6px; align-items:center;">
+                <input type="text" id="mobMarkInput" class="text-input-field" placeholder="Watermark text (e.g. © Arjona AI)..." value="© Arjona AI" style="flex:1;">
+                <button class="editor-back-btn" style="width:auto; height:28px; padding:0 12px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="addMobWatermark()">Add Mark</button>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Opacity &amp; Color</label><span id="val-mop">50%</span></div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="range" id="mobMarkOp" min="10" max="100" value="50" oninput="var el=document.getElementById('val-mop'); if(el) el.innerText=this.value+'%';" style="flex:1;">
+                    <input type="color" id="mobMarkCol" value="#ffffff" style="width:28px; height:22px; border:none; background:transparent; cursor:pointer;">
+                </div>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "pick") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div id="mobPickPreview" style="width:32px; height:32px; border-radius:6px; background:#58A6FF; border:2px solid #fff;"></div>
+                <input type="text" id="mobPickHex" class="text-input-field" value="#58A6FF" oninput="var el=document.getElementById('mobPickPreview'); if(el) el.style.background=this.value; if(typeof setProp==='function') setProp('color', this.value);" style="flex:1;">
+                <button class="editor-back-btn" style="width:auto; height:28px; padding:0 10px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="if(typeof toggleEyedropper==='function') toggleEyedropper(); closeMobToolEditor();">👁️ Eyedropper</button>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Hue &amp; Saturation</label><span>210°</span></div>
+                <input type="range" min="0" max="360" value="210" oninput="var hex='#58A6FF'; var inp=document.getElementById('mobPickHex'); if(inp) inp.value=hex; var pr=document.getElementById('mobPickPreview'); if(pr) pr.style.background=hex;">
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "templates" || opt.id === "templates_lib") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:4px;";
+        wrap.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--ac);">
+                <span>Templates Library (tpits)</span>
+                <span style="color:var(--dn); font-weight:700;">✓/✕ Excluded</span>
+            </div>
+            <div class="options-grid-compact" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="option-card" style="height:46px;" onclick="if(typeof openTemplates==='function') openTemplates(); closeMobToolEditor();"><span>📱 Social Cards</span></div>
+                <div class="option-card" style="height:46px;" onclick="if(typeof openTemplates==='function') openTemplates(); closeMobToolEditor();"><span>💼 Business</span></div>
+                <div class="option-card" style="height:46px;" onclick="if(typeof openTemplates==='function') openTemplates(); closeMobToolEditor();"><span>🎨 Creative</span></div>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "layers_lib" || opt.id === "panel") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bd); padding:6px 10px; border-radius:6px; font-size:11px;">
+                <span>Active Layer Count: <b style="color:var(--ac);">${typeof els !== 'undefined' ? els.length : 1}</b></span>
+                <button class="editor-back-btn" style="width:auto; height:26px; padding:0 10px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="if(typeof openLayers==='function') openLayers(); closeMobToolEditor();">Full Layers Panel</button>
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button class="editor-back-btn" style="flex:1; width:auto; height:30px;" onclick="if(typeof layerOp==='function') layerOp('front');">⬆️ Front</button>
+                <button class="editor-back-btn" style="flex:1; width:auto; height:30px;" onclick="if(typeof layerOp==='function') layerOp('back');">⬇️ Back</button>
+                <button class="editor-back-btn" style="flex:1; width:auto; height:30px;" onclick="if(typeof layerOp==='function') layerOp('dup');">📋 Duplicate</button>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "grid_lib" || opt.id === "grid") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bd); padding:6px 10px; border-radius:6px; font-size:11px;">
+                <span>Canvas Alignment Grid</span>
+                <button class="editor-back-btn" style="width:auto; height:26px; padding:0 10px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="if(typeof toggleGrid==='function') toggleGrid();">Toggle Grid On/Off</button>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Grid Spacing</label><span>20px</span></div>
+                <input type="range" min="10" max="100" value="20" oninput="if(typeof gridSz !== 'undefined') gridSz = parseInt(this.value); if(typeof R==='function') R();">
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "color_bg" || opt.id === "gradient") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bd); padding:6px 10px; border-radius:6px; font-size:11px;">
+                <span>Background Color &amp; Gradient</span>
+                <button class="editor-back-btn" style="width:auto; height:26px; padding:0 10px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="if(typeof openGradient==='function') openGradient(); closeMobToolEditor();">Full BG Editor</button>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <label style="font-size:11px;">Solid:</label><input type="color" value="#0D1117" onchange="if(typeof setBg==='function') setBg('solid', this.value); else if(typeof canvas!=='undefined' && typeof ctx!=='undefined') { ctx.fillStyle=this.value; ctx.fillRect(0,0,canvas.width,canvas.height); if(typeof R==='function') R(); }" style="width:32px; height:24px; border:none; background:transparent; cursor:pointer;">
+                <label style="font-size:11px;">Grad 1:</label><input type="color" value="#00C6FF" style="width:32px; height:24px; border:none; background:transparent; cursor:pointer;">
+                <label style="font-size:11px;">Grad 2:</label><input type="color" value="#7F3DFF" style="width:32px; height:24px; border:none; background:transparent; cursor:pointer;">
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "crop") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:4px;";
+        wrap.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--ac);">
+                <span>Aspect Ratio Selection</span>
+                <span style="color:var(--dn); font-weight:700;">✓/✕ Excluded</span>
+            </div>
+            <div class="options-grid-compact">
+                <div class="option-card active" onclick="if(typeof toggleCropMode==='function') toggleCropMode(); closeMobToolEditor();"><span>Free / Launch</span></div>
+                <div class="option-card" onclick="if(typeof toggleCropMode==='function') toggleCropMode(); closeMobToolEditor();"><span>1:1 Square</span></div>
+                <div class="option-card" onclick="if(typeof toggleCropMode==='function') toggleCropMode(); closeMobToolEditor();"><span>4:5 Story</span></div>
+                <div class="option-card" onclick="if(typeof toggleCropMode==='function') toggleCropMode(); closeMobToolEditor();"><span>16:9 Wide</span></div>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "stickers" || opt.id === "frames" || opt.id === "collage" || opt.id === "draw") {
+        var titleName = opt.label;
+        var funcCall = opt.id === "stickers" ? "openStickers()" : (opt.id === "frames" ? "openFrames()" : (opt.id === "collage" ? "openCollage()" : "toggleDrawMode()"));
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="background:var(--bd); border-radius:6px; padding:8px 10px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:var(--tx1);">${titleName} Workspace</div>
+                    <div style="font-size:9px; color:var(--tx2);">Add &amp; customize ${titleName.toLowerCase()} directly on canvas</div>
+                </div>
+                <button class="editor-back-btn" style="width:auto; height:28px; padding:0 12px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="if(typeof ${funcCall.split('()')[0]} === 'function') ${funcCall}; closeMobToolEditor();">Launch ${titleName}</button>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id.indexOf("shape_") === 0) {
+        var shapeType = opt.id.replace("shape_", "");
+        if (shapeType === "rect") shapeType = "rectangle";
+        if (shapeType === "tri") shapeType = "triangle";
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="background:var(--bd); border-radius:6px; padding:6px 10px; display:flex; align-items:center; justify-content:space-between;">
+                <span>Add ${shapeType.toUpperCase()} shape to canvas</span>
+                <button class="editor-back-btn" style="width:auto; height:28px; padding:0 12px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="if(typeof addShape === 'function') addShape('${shapeType}');">Add Shape</button>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Shape Opacity &amp; Color</label><span>100%</span></div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="range" min="10" max="100" value="100" oninput="if(typeof setProp==='function') setProp('opacity', this.value);" style="flex:1;">
+                    <input type="color" value="#58A6FF" onchange="if(typeof setProp==='function') setProp('color', this.value);" style="width:28px; height:22px; border:none; background:transparent; cursor:pointer;">
+                </div>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else {
+        var sld = document.createElement("div");
+        sld.className = "sheet-sld";
+        sld.innerHTML = `
+            <div class="sheet-sld-head"><label>${opt.label} Adjustment</label><span>80%</span></div>
+            <input type="range" min="0" max="100" value="80">
+        `;
+        container.appendChild(sld);
+    }
+}
+
+function generateMobQRCode() {
+    var inp = document.getElementById('mobQrInput');
+    var text = inp ? inp.value.trim() : 'https://arjona.ai';
+    if (!text) text = 'https://arjona.ai';
+
+    var fgInp = document.getElementById('mobQrFg');
+    var bgInp = document.getElementById('mobQrBg');
+    var fgCol = fgInp ? fgInp.value : '#000000';
+    var bgCol = bgInp ? bgInp.value : '#ffffff';
+
+    var created = false;
+    function applyQRCodeCanvas(imageContent) {
+        if (created) return;
+        created = true;
+        if (typeof els !== 'undefined' && typeof canvas !== 'undefined') {
+            els.push({
+                id: 'qr' + Date.now(), type: 'image', content: imageContent,
+                x: canvas.width / 2 - 120, y: canvas.height / 2 - 120,
+                scale: 60, rotate: 0, opacity: 100
+            });
+            if (typeof selEl === 'function') selEl(els[els.length - 1].id);
+            else { selId = els[els.length - 1].id; if (typeof sUI === 'function') sUI(); if (typeof R === 'function') R(); }
+            if (typeof sH === 'function') sH('QR Code Added');
+        }
+        closeMobToolEditor();
+    }
+
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function () {
+        applyQRCodeCanvas(img);
+    };
+    img.onerror = function () {
+        var mc = document.createElement('canvas');
+        mc.width = 240; mc.height = 240;
+        var ctx2 = mc.getContext('2d');
+        ctx2.fillStyle = bgCol;
+        ctx2.fillRect(0, 0, 240, 240);
+        ctx2.fillStyle = fgCol;
+        ctx2.fillRect(20, 20, 60, 60); ctx2.fillStyle = bgCol; ctx2.fillRect(30, 30, 40, 40); ctx2.fillStyle = fgCol; ctx2.fillRect(40, 40, 20, 20);
+        ctx2.fillRect(160, 20, 60, 60); ctx2.fillStyle = bgCol; ctx2.fillRect(170, 30, 40, 40); ctx2.fillStyle = fgCol; ctx2.fillRect(180, 40, 20, 20);
+        ctx2.fillRect(20, 160, 60, 60); ctx2.fillStyle = bgCol; ctx2.fillRect(30, 170, 40, 40); ctx2.fillStyle = fgCol; ctx2.fillRect(40, 180, 20, 20);
+        var hash = 0;
+        for (var i = 0; i < text.length; i++) hash = ((hash << 5) - hash) + text.charCodeAt(i);
+        for (var r = 90; r < 150; r += 15) {
+            for (var c = 90; c < 150; c += 15) {
+                if (((hash + r * c) % 3) === 0) ctx2.fillRect(c, r, 12, 12);
+            }
+        }
+        ctx2.fillRect(100, 100, 40, 40);
+        var localImg = new Image();
+        localImg.onload = function() { applyQRCodeCanvas(localImg); };
+        localImg.src = mc.toDataURL();
+    };
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=' + fgCol.replace('#','') + '&bgcolor=' + bgCol.replace('#','') + '&data=' + encodeURIComponent(text);
+}
+
+function addMobWatermark() {
+    var inp = document.getElementById('mobMarkInput');
+    var text = inp ? inp.value.trim() : '© Arjona AI';
+    if (!text) text = '© Arjona AI';
+
+    var opInp = document.getElementById('mobMarkOp');
+    var opVal = opInp ? parseInt(opInp.value) : 50;
+
+    var colInp = document.getElementById('mobMarkCol');
+    var colVal = colInp ? colInp.value : '#ffffff';
+
+    if (typeof els !== 'undefined' && typeof canvas !== 'undefined') {
+        els.push({
+            id: 'w' + Date.now(), type: 'text', text: text,
+            x: canvas.width - 160, y: canvas.height - 40,
+            scale: 45, rotate: 0, opacity: opVal,
+            font: 'Arial', color: colVal, fontSize: 24,
+            charSpacing: 1, curve: 0, stroke: 1, strokeColor: '#000000',
+            emboss: 0, threeDDepth: 0, innerShadow: 0, reflection: 0, glow: 0
+        });
+        if (typeof selEl === 'function') selEl(els[els.length - 1].id);
+        else { selId = els[els.length - 1].id; if (typeof sUI === 'function') sUI(); if (typeof R === 'function') R(); }
+        if (typeof sH === 'function') sH('Watermark Added');
+    }
+    closeMobToolEditor();
 }
