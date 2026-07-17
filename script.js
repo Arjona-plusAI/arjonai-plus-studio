@@ -1790,13 +1790,21 @@ function initAiChatDrag() {
 
 function toggleAiChat() {
     var box = document.getElementById('aiChatBox');
+    if (!box) return;
     aiChatOpen = !aiChatOpen;
     if (aiChatOpen) {
         box.classList.remove('hidden');
-        var rect = box.getBoundingClientRect();
-        if (rect.top < 0 || rect.left < 0 || rect.bottom > window.innerHeight || rect.right > window.innerWidth) {
-            box.style.left = ''; box.style.top = '';
-            box.style.bottom = '70px'; box.style.right = '14px';
+        box.style.left = ''; box.style.top = '';
+        if (window.innerWidth <= 900) {
+            box.style.bottom = '178px';
+            box.style.right = '14px';
+            box.style.width = 'calc(100vw - 28px)';
+            box.style.maxHeight = 'calc(100dvh - 240px)';
+        } else {
+            box.style.bottom = '70px';
+            box.style.right = '14px';
+            box.style.width = '350px';
+            box.style.maxHeight = '480px';
         }
     } else {
         box.classList.add('hidden');
@@ -6403,43 +6411,183 @@ function sendAiChat() {
     if (!txt) return;
 
     var low = txt.toLowerCase();
-    if (low.indexOf('generate') === 0 || low.indexOf('create') === 0 || low.indexOf('draw') === 0 || low.indexOf('make a') === 0) {
+    var chatBody = document.getElementById('aiChatBody');
+    if (chatBody) {
+        var uMsg = document.createElement('div');
+        uMsg.className = 'ai-msg ai-msg-user';
+        uMsg.innerText = txt;
+        chatBody.appendChild(uMsg);
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+    inp.value = '';
+
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    if (!el && typeof els !== 'undefined' && els.length > 0) el = els[els.length - 1];
+
+    function replyBot(respTxt) {
+        if (!chatBody) return;
+        var bMsg = document.createElement('div');
+        bMsg.className = 'ai-msg ai-msg-bot';
+        bMsg.innerText = respTxt;
+        chatBody.appendChild(bMsg);
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    // 1. Generate commands
+    if (low.indexOf('generate') === 0 || low.indexOf('create') === 0 || low.indexOf('draw') === 0 || low.indexOf('make a') === 0 || low.indexOf('replace background') >= 0 || low.indexOf('sunset') >= 0 || low.indexOf('space background') >= 0 || low.indexOf('winter') >= 0) {
         var cleanPrompt = txt.replace(/^(generate|create|draw|make a|make an)\s+/i, '').trim();
         var topP = document.getElementById('aiPrompt');
         var mobP = document.getElementById('mobAiPrompt');
         if (topP) topP.value = cleanPrompt;
         if (mobP) mobP.value = cleanPrompt;
-
-        var chatBody = document.getElementById('aiChatBody');
-        if (chatBody) {
-            var uMsg = document.createElement('div');
-            uMsg.className = 'ai-msg ai-msg-user';
-            uMsg.innerText = txt;
-            chatBody.appendChild(uMsg);
-        }
-        inp.value = '';
-        generateAI();
+        if (typeof generateAI === 'function') generateAI();
+        replyBot('✨ Processing your command: "' + cleanPrompt + '"... Generating scene and syncing to our active session.');
         return;
-    } else if (low.indexOf('ghibli') >= 0 || low.indexOf('cyberpunk') >= 0 || low.indexOf('watercolor') >= 0 || low.indexOf('oil') >= 0 || low.indexOf('sketch') >= 0 || low.indexOf('comic') >= 0) {
+    }
+
+    // 2. Art style transformations
+    if (low.indexOf('ghibli') >= 0 || low.indexOf('cyberpunk') >= 0 || low.indexOf('watercolor') >= 0 || low.indexOf('oil') >= 0 || low.indexOf('sketch') >= 0 || low.indexOf('comic') >= 0) {
         var styleToApply = 'ghibli';
         if (low.indexOf('cyberpunk') >= 0) styleToApply = 'cyberpunk';
         else if (low.indexOf('watercolor') >= 0) styleToApply = 'watercolor';
         else if (low.indexOf('oil') >= 0) styleToApply = 'oilpaint';
         else if (low.indexOf('sketch') >= 0) styleToApply = 'sketch';
         else if (low.indexOf('comic') >= 0) styleToApply = 'comic';
-
-        var chatBody2 = document.getElementById('aiChatBody');
-        if (chatBody2) {
-            var uMsg2 = document.createElement('div');
-            uMsg2.className = 'ai-msg ai-msg-user';
-            uMsg2.innerText = txt;
-            chatBody2.appendChild(uMsg2);
-        }
-        inp.value = '';
         if (typeof applyAiArtStyle === 'function') applyAiArtStyle(styleToApply);
         return;
     }
 
-    if (_orig_sendAiChat) _orig_sendAiChat();
+    // 3. Bigger / Smaller
+    if (low.indexOf('bigger') >= 0 || low.indexOf('large') >= 0 || low.indexOf('increase') >= 0) {
+        if (el) {
+            el.scale = Math.min(320, (el.scale || 100) + 25);
+            if (el.type === 'text' && el.fontSize) el.fontSize = Math.min(300, el.fontSize + 15);
+            if (typeof R === 'function') R(); if (typeof sUI === 'function') sUI();
+            replyBot('🔍 Increased scale of active element to ' + el.scale + '%!');
+        } else {
+            replyBot('⚠️ Please select or add an element on the canvas first to make it bigger.');
+        }
+        return;
+    }
+    if (low.indexOf('smaller') >= 0 || low.indexOf('reduce') >= 0 || low.indexOf('decrease') >= 0) {
+        if (el) {
+            el.scale = Math.max(12, (el.scale || 100) - 25);
+            if (el.type === 'text' && el.fontSize) el.fontSize = Math.max(12, el.fontSize - 15);
+            if (typeof R === 'function') R(); if (typeof sUI === 'function') sUI();
+            replyBot('🔍 Reduced scale of active element to ' + el.scale + '%!');
+        } else {
+            replyBot('⚠️ Please select an element first to make it smaller.');
+        }
+        return;
+    }
+
+    // 4. Center / Align
+    if (low.indexOf('center') >= 0 || low.indexOf('align') >= 0 || low.indexOf('middle') >= 0 || low.indexOf('golden ratio') >= 0) {
+        if (el) {
+            el.x = (canvas ? canvas.width : 1280) / 2;
+            el.y = (canvas ? canvas.height : 720) / 2;
+            if (typeof R === 'function') R(); if (typeof showCornerHandles === 'function') showCornerHandles(el); if (typeof sUI === 'function') sUI();
+            replyBot('🎯 Centered selected layer perfectly on the canvas!');
+        } else {
+            replyBot('⚠️ Please select an item on canvas to center/align.');
+        }
+        return;
+    }
+
+    // 5. Remove BG / Smart BG / Cutout
+    if (low.indexOf('remove bg') >= 0 || low.indexOf('background cutout') >= 0 || low.indexOf('smart bg') >= 0 || low.indexOf('cutout') >= 0) {
+        if (typeof aiSmartBG === 'function') aiSmartBG();
+        replyBot('✨ Triggered automatic Smart Background Remover on the active image.');
+        return;
+    }
+
+    // 6. Neon / Glow / Border
+    if (low.indexOf('neon') >= 0 || low.indexOf('glow') >= 0 || low.indexOf('border') >= 0) {
+        if (el) {
+            if (el.type === 'text') { el.glow = 28; el.glowColor = '#00C6FF'; }
+            else { el.stroke = 8; el.strokeColor = '#00C6FF'; }
+            if (typeof R === 'function') R(); if (typeof sUI === 'function') sUI();
+            replyBot('⚡ Added glowing neon border effect!');
+        } else {
+            replyBot('⚠️ Please select an item on canvas to apply neon effect.');
+        }
+        return;
+    }
+
+    // 7. 3D / Depth / Bevel / Emboss
+    if (low.indexOf('3d') >= 0 || low.indexOf('depth') >= 0 || low.indexOf('bevel') >= 0 || low.indexOf('emboss') >= 0 || low.indexOf('metallic') >= 0) {
+        if (el) {
+            if (el.type === 'text') { el.threeDDepth = 18; el.threeDColor = '#30363D'; el.emboss = 5; }
+            else { el.emboss = 8; }
+            if (typeof R === 'function') R(); if (typeof sUI === 'function') sUI();
+            replyBot('💎 Applied 3D metallic/embossed depth effect!');
+        } else {
+            replyBot('⚠️ Please select an item to apply 3D effect.');
+        }
+        return;
+    }
+
+    // 8. Enhance / 4K / Clarity
+    if (low.indexOf('enhance') >= 0 || low.indexOf('4k') >= 0 || low.indexOf('clarity') >= 0) {
+        if (typeof aiAutoEnhance === 'function') aiAutoEnhance();
+        replyBot('📸 Ran AI Image Clarity & 4K sharpness enhancement!');
+        return;
+    }
+
+    // 9. Noir / Grayscale / Sepia / Vintage Film Grain
+    if (low.indexOf('noir') >= 0 || low.indexOf('monochrome') >= 0 || low.indexOf('grayscale') >= 0) {
+        if (typeof grayscale === 'function') grayscale();
+        replyBot('🖤 Applied high-contrast dramatic monochrome noir filter!');
+        return;
+    }
+    if (low.indexOf('grain') >= 0 || low.indexOf('sepia') >= 0 || low.indexOf('vintage') >= 0) {
+        if (typeof gradeP === 'function') gradeP('vintage');
+        replyBot('🎞️ Applied vintage analog film grain & warm sepia tone!');
+        return;
+    }
+
+    // 10. Watermark / Handwriting / Templates
+    if (low.indexOf('watermark') >= 0) {
+        if (typeof openWatermark === 'function') openWatermark();
+        replyBot('🏷️ Added clean translucent watermark to bottom corner!');
+        return;
+    }
+    if (low.indexOf('handwriting') >= 0 || low.indexOf('signature') >= 0) {
+        if (typeof openHandwritingFontModal === 'function') openHandwritingFontModal();
+        replyBot('✍️ Launched Signature & Handwriting Font Converter!');
+        return;
+    }
+    if (low.indexOf('banner') >= 0 || low.indexOf('story') >= 0 || low.indexOf('poster') >= 0 || low.indexOf('template') >= 0) {
+        if (typeof openTemplates === 'function') openTemplates();
+        replyBot('💼 Launched Design Templates Library!');
+        return;
+    }
+
+    // 11. Colors
+    var colorMap = {
+        'red': '#FF3D71', 'blue': '#58A6FF', 'green': '#238636', 'yellow': '#D29922',
+        'white': '#FFFFFF', 'black': '#000000', 'purple': '#A371F7', 'pink': '#FF69B4',
+        'orange': '#FF6F00', 'cyan': '#00C6FF', 'gold': '#FFD700'
+    };
+    for (var col in colorMap) {
+        if (low.indexOf(col) >= 0) {
+            if (el) {
+                el.color = colorMap[col];
+                if (typeof R === 'function') R(); if (typeof sUI === 'function') sUI();
+                replyBot('🎨 Changed active element color to ' + col.toUpperCase() + ' (' + colorMap[col] + ')!');
+            } else {
+                replyBot('⚠️ Please select an item first to change its color to ' + col + '.');
+            }
+            return;
+        }
+    }
+
+    if (_orig_sendAiChat) {
+        try { _orig_sendAiChat(); } catch(e) {
+            replyBot('Hello! Main Arjona AI hoon. You can upload an image (`Upload Image` button below) to apply Ghibli/Cyberpunk styles, tap [Ideas] for instant prompts, or type commands right here!');
+        }
+    } else {
+        replyBot('Hello! I am Arjona AI. You can upload an image (`Upload Image` button below) to apply Ghibli/Cyberpunk styles, tap [Ideas] near the close button for 18 instant prompts, or type design commands right here!');
+    }
 }
 
