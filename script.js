@@ -29,28 +29,50 @@ function initUniverseBg() {
 /* ===== SPLASH SCREEN ===== */
 
 function initSplash() {
-    var splash = document.getElementById('splashScreen');
-    var fill = document.getElementById('splashFill');
-    var txt = document.getElementById('splashTxt');
-    if (!splash) return;
-    var msgs = ['Loading engine', 'Connecting AI', 'Preparing canvas', 'Ready'];
-    var step = 0;
-    var interval = setInterval(function () {
-        step++;
-        if (txt && step < msgs.length) txt.textContent = msgs[step];
-        if (fill) fill.style.width = Math.min(100, 25 + step * 25) + '%';
-    }, 350);
-    setTimeout(function () {
-        clearInterval(interval);
-        if (fill) fill.style.width = '100%';
-        if (txt) txt.textContent = 'Ready';
+    try {
+        var splash = document.getElementById('splashScreen');
+        var fill = document.getElementById('splashFill');
+        var txt = document.getElementById('splashTxt');
+        if (!splash) return;
+        var msgs = ['Loading engine', 'Connecting AI', 'Preparing canvas', 'Ready'];
+        var step = 0;
+        var interval = setInterval(function () {
+            try {
+                step++;
+                if (txt && step < msgs.length) txt.textContent = msgs[step];
+                if (fill) fill.style.width = Math.min(100, 25 + step * 25) + '%';
+            } catch(e) {}
+        }, 350);
         setTimeout(function () {
-            if (splash) splash.classList.add('hidden');
-            setTimeout(function () {
-                if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
-            }, 500);
-        }, 300);
-    }, 1500);
+            try {
+                clearInterval(interval);
+                if (fill) fill.style.width = '100%';
+                if (txt) txt.textContent = 'Ready';
+                setTimeout(function () {
+                    try {
+                        if (splash) splash.classList.add('hidden');
+                        setTimeout(function () {
+                            try { if (splash && splash.parentNode) splash.parentNode.removeChild(splash); } catch(e) {}
+                        }, 500);
+                    } catch(e) {}
+                }, 300);
+            } catch(e) {}
+        }, 1500);
+
+        // Failsafe timer: guarantees splash screen dismissal even if Live Server websocket reload or network delay throttles timers
+        setTimeout(function () {
+            try {
+                if (typeof interval !== 'undefined') clearInterval(interval);
+                var sp = document.getElementById('splashScreen');
+                if (sp) {
+                    sp.classList.add('hidden');
+                    if (sp.parentNode) sp.parentNode.removeChild(sp);
+                }
+            } catch(e) {}
+        }, 2200);
+    } catch(err) {
+        console.warn('Splash screen warning:', err);
+    }
 }
 
 /* ===== SAFE WRAPPERS ===== */
@@ -279,29 +301,203 @@ function closeLayers() {
 }
 function renderLayersPanel() {
     var panel = document.getElementById('layersPanel');
-    if (!panel) return;
+    if (!panel) {
+        // Check if our mobToolEditor is showing layers panel
+        panel = document.getElementById('mobEditorBody');
+        if (!panel || currentMobEditorOption?.id !== 'panel') return;
+    }
     if (els.length === 0) {
         panel.innerHTML = '<div style="text-align:center;padding:24px;color:var(--tx3)">No layers</div>';
         return;
     }
-    panel.innerHTML = '';
+    panel.innerHTML = `
+        <div class="layers-merge-bar" style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; background:var(--bd); border-radius:8px; margin-bottom:10px; border:1px solid var(--bd2); flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:6px;">
+                <input type="checkbox" id="selectAllMergeCb" onchange="toggleSelectAllMerge(this)" style="width:16px; height:16px; cursor:pointer;">
+                <label for="selectAllMergeCb" style="font-size:11px; font-weight:700; color:var(--tx1); cursor:pointer;">Select All (<span id="mergeSelectedCount">0</span>)</label>
+            </div>
+            <button class="btn-action-primary" id="mergeActionBtn" onclick="mergeCheckedLayers()" disabled style="background:var(--ac); color:#fff; font-size:11px; font-weight:700; padding:6px 12px; border-radius:6px; border:none; opacity:0.5; cursor:not-allowed;">🔀 Merge Selected</button>
+        </div>
+    `;
     els.slice().reverse().forEach(function (el, idx) {
         var item = document.createElement('div');
         item.className = 'layer-item' + (el.id === selId ? ' selected' : '');
-        var thumbHtml = el.type === 'text'
-            ? '<i data-lucide="type" style="width:18px;height:18px"></i>'
-            : '<i data-lucide="image" style="width:18px;height:18px"></i>';
-        var name = el.type === 'text' ? (el.text || '').substring(0, 20) : 'Image ' + (els.length - idx);
-        item.innerHTML =
-            '<div class="layer-thumb">' + thumbHtml + '</div>' +
-            '<div class="layer-name">' + name + '</div>' +
-            '<div class="layer-controls">' +
-            '<button class="layer-ctrl" onclick="selectLayer(\'' + el.id + '\')" title="Select"><i data-lucide="mouse-pointer-2"></i></button>' +
-            '<button class="layer-ctrl" onclick="deleteLayerById(\'' + el.id + '\')" title="Delete"><i data-lucide="trash-2"></i></button>' +
-            '</div>';
+        item.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px; border:1px solid var(--bd2); background:var(--bg); margin-bottom:6px;";
+        
+        // Visual Preview of Content (thumb)
+        var thumbHtml = '';
+        if (el.type === 'image' && el.content) {
+            var imgSrc = el.content.src;
+            if (!imgSrc || !imgSrc.startsWith('data:')) {
+                try { imgSrc = serializeImg(el.content); } catch(err) { imgSrc = ''; }
+            }
+            if (imgSrc) {
+                thumbHtml = '<img src="' + imgSrc + '" style="width:34px; height:34px; border-radius:6px; object-fit:cover; border:1px solid var(--bd3); background:#000;">';
+            } else {
+                thumbHtml = '<i data-lucide="image" style="width:18px;height:18px"></i>';
+            }
+        } else if (el.type === 'text') {
+            var txtCol = el.color || '#ffffff';
+            var shortTxt = (el.text || 'T').substring(0, 3);
+            thumbHtml = '<div style="width:34px; height:34px; border-radius:6px; display:flex; align-items:center; justify-content:center; background:var(--bd); border:1px solid var(--bd3); color:' + txtCol + '; font-size:12px; font-weight:800; overflow:hidden;">' + shortTxt + '</div>';
+        }
+
+        var name = el.type === 'text' ? '"' + (el.text || '').substring(0, 18) + '"' : 'Image Layer ' + (els.length - idx);
+        
+        item.innerHTML = `
+            <input type="checkbox" class="layer-merge-cb" value="${el.id}" onchange="updateMergeButtonState()" style="width:16px; height:16px; cursor:pointer; flex-shrink:0;" title="Select for merge">
+            <div class="layer-thumb" style="flex-shrink:0; display:flex; align-items:center; justify-content:center;">${thumbHtml}</div>
+            <div class="layer-name" style="flex:1; min-width:0; cursor:pointer;" onclick="selectLayer('${el.id}')">
+                <div style="font-size:12px; font-weight:700; color:var(--tx1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>
+                <div style="font-size:10px; color:var(--tx3);">${el.type.toUpperCase()} · ${Math.round(el.scale||100)}%</div>
+            </div>
+            <div class="layer-controls" style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                <button class="layer-ctrl ${el.locked ? 'locked' : ''}" onclick="toggleLayerLock('${el.id}')" title="${el.locked ? 'Unlock Layer' : 'Lock Layer'}" style="width:30px; height:28px; border-radius:6px; border:1px solid var(--bd2); background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px;">${el.locked ? '🔒' : '🔓'}</button>
+                <button class="layer-ctrl" onclick="editLayerById('${el.id}')" title="Edit Layer" style="width:30px; height:28px; border-radius:6px; border:1px solid var(--bd2); background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px;">✏️</button>
+                <button class="layer-ctrl" onclick="selectLayer('${el.id}')" title="Select Layer" style="width:30px; height:28px; border-radius:6px; border:1px solid var(--bd2); background:${el.id === selId ? 'var(--ac)' : 'transparent'}; color:${el.id === selId ? '#fff' : 'inherit'}; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
+                </button>
+                <button class="layer-ctrl" onclick="deleteLayerById('${el.id}')" title="Delete Layer" style="width:30px; height:28px; border-radius:6px; border:1px solid var(--bd2); background:transparent; color:var(--dn); cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </div>
+        `;
         panel.appendChild(item);
     });
     if (window.lucide) lucide.createIcons();
+}
+
+function toggleLayerLock(id) {
+    var el = findEl(id);
+    if (!el) return;
+    el.locked = !el.locked;
+    if (typeof sH === 'function') sH(el.locked ? 'Lock Layer' : 'Unlock Layer');
+    if (typeof R === 'function') R();
+    if (typeof sUI === 'function') sUI();
+    renderLayersPanel();
+}
+
+function editLayerById(id) {
+    var el = findEl(id);
+    if (!el) return;
+    selId = id;
+    if (typeof sUI === 'function') sUI();
+    if (typeof showCornerHandles === 'function') showCornerHandles(el);
+    if (window.innerWidth <= 900) {
+        if (el.type === 'text') {
+            if (typeof selectBottomTab === 'function') selectBottomTab('type');
+            if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'typography', label: 'Typography', requiresSelection: false }, 'Type');
+            setTimeout(function() {
+                var inp = document.querySelector('.mob-tool-editor .text-input-field');
+                if (inp) { inp.value = el.text || ''; inp.focus(); inp.select(); }
+            }, 150);
+        } else {
+            if (typeof selectBottomTab === 'function') selectBottomTab('move');
+            if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale', label: 'Scale', requiresSelection: false }, 'Move');
+        }
+    } else {
+        if (typeof closeLayers === 'function') closeLayers();
+        if (el.type === 'text') {
+            var textTab = document.querySelector('[data-p="bpText"]');
+            if (textTab && typeof bpTab === 'function') bpTab(textTab);
+            setTimeout(function() { var di = document.getElementById('txtIn'); if (di) { di.focus(); di.select(); } }, 200);
+        } else {
+            var transTab = document.querySelector('[data-p="bpTrans"]');
+            if (transTab && typeof bpTab === 'function') bpTab(transTab);
+        }
+    }
+}
+
+function updateMergeButtonState() {
+    var checked = document.querySelectorAll('.layer-merge-cb:checked');
+    var count = checked.length;
+    var countEl = document.getElementById('mergeSelectedCount');
+    if (countEl) countEl.innerText = count;
+    var btn = document.getElementById('mergeActionBtn');
+    if (btn) {
+        if (count >= 2) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+        }
+    }
+}
+
+function toggleSelectAllMerge(masterCb) {
+    var cbs = document.querySelectorAll('.layer-merge-cb');
+    for (var i = 0; i < cbs.length; i++) {
+        cbs[i].checked = masterCb.checked;
+    }
+    updateMergeButtonState();
+}
+
+function mergeCheckedLayers() {
+    var checked = document.querySelectorAll('.layer-merge-cb:checked');
+    if (checked.length < 2) {
+        alert('Please select at least 2 layers to merge.');
+        return;
+    }
+    var idsToMerge = [];
+    for (var i = 0; i < checked.length; i++) idsToMerge.push(checked[i].value);
+
+    var layersToMerge = [];
+    for (var j = 0; j < els.length; j++) {
+        if (idsToMerge.indexOf(els[j].id) >= 0) {
+            layersToMerge.push(els[j]);
+        }
+    }
+    if (layersToMerge.length < 2) return;
+
+    var oc = document.createElement('canvas');
+    oc.width = canvas.width;
+    oc.height = canvas.height;
+    var octx = oc.getContext('2d');
+
+    layersToMerge.forEach(function (el) {
+        if (el.type === 'image' && el.content && el.content.complete) {
+            octx.save();
+            var iw = el.content.width * (el.scale / 100);
+            var ih = el.content.height * (el.scale / 100);
+            octx.translate(el.x + iw / 2, el.y + ih / 2);
+            octx.rotate((el.rotate || 0) * Math.PI / 180);
+            octx.globalAlpha = (el.opacity !== undefined ? el.opacity : 100) / 100;
+            octx.drawImage(el.content, -iw / 2, -ih / 2, iw, ih);
+            octx.restore();
+        } else if (el.type === 'text') {
+            octx.save();
+            var fs = el.fontSize || Math.max(el.scale * 0.6, 8);
+            octx.font = 'bold ' + fs + 'px "' + (el.font || 'Arial') + '"';
+            var tw = octx.measureText(el.text || '').width;
+            var th = fs;
+            octx.translate(el.x + tw / 2, el.y + th / 2);
+            octx.rotate((el.rotate || 0) * Math.PI / 180);
+            octx.globalAlpha = (el.opacity !== undefined ? el.opacity : 100) / 100;
+            octx.fillStyle = el.color || '#ffffff';
+            octx.fillText(el.text || '', -tw / 2, th / 4);
+            octx.restore();
+        }
+    });
+
+    var mergedImg = new Image();
+    mergedImg.crossOrigin = 'anonymous';
+    mergedImg.onload = function () {
+        els = els.filter(function (e) { return idsToMerge.indexOf(e.id) < 0; });
+        els.push({
+            id: 'm' + Date.now(), type: 'image', content: mergedImg,
+            x: 0, y: 0, scale: 100, rotate: 0, opacity: 100
+        });
+        selId = els[els.length - 1].id;
+        if (typeof sH === 'function') sH('Merge Layers (' + idsToMerge.length + ')');
+        if (typeof R === 'function') R();
+        if (typeof sUI === 'function') sUI();
+        renderLayersPanel();
+        if (typeof showStatusBadge === 'function') showStatusBadge('🔀 Merged ' + idsToMerge.length + ' layers!');
+    };
+    mergedImg.src = oc.toDataURL();
 }
 function selectLayer(id) {
     selId = id; R(); sUI();
@@ -1085,27 +1281,105 @@ function closeCropOverlay() {
    SINGLE CLEAN VERSION: STICKERS
    ============================================ */
 
-function openStickers() {
+function openStickers(tabName) {
+    var overlay = document.getElementById('stickersAssetsModal');
+    if (overlay) overlay.remove();
+
+    window.arjonaCustomAssets = window.arjonaCustomAssets || [];
+    window.arjonaCustomTemplates = window.arjonaCustomTemplates || [];
+    try {
+        var sa = localStorage.getItem('arjona_custom_assets');
+        if (sa) window.arjonaCustomAssets = JSON.parse(sa);
+        var st = localStorage.getItem('arjona_custom_templates');
+        if (st) window.arjonaCustomTemplates = JSON.parse(st);
+    } catch(e) {}
+
+    var activeTab = typeof tabName === 'string' ? tabName : 'default';
     var stickers = [
         '⭐', '❤️', '🔥', '✨', '💯', '🎉', '👍', '💎', '🌟', '⚡', '🎨', '🚀',
         '💪', '🎵', '🌈', '🏆', '😎', '🤩', '😍', '🥳', '🎭', '🎪', '🎯', '💡',
         '📸', '🎬', '🌺', '🦋', '🍀', '⭕', '❌', '✅'
     ];
-    var html = '<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px;padding:8px">';
+
+    var defaultHtml = '<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px;padding:4px;">';
     stickers.forEach(function (s) {
-        html += '<button style="font-size:28px;padding:10px;background:var(--sf2);border:1px solid var(--bd);' +
-            'border-radius:10px;cursor:pointer;transition:transform 0.2s" ' +
+        defaultHtml += '<button style="font-size:26px;padding:8px;background:var(--sf2);border:1px solid var(--bd);' +
+            'border-radius:8px;cursor:pointer;transition:transform 0.2s" ' +
             'onmouseover="this.style.transform=\'scale(1.2)\'" ' +
             'onmouseout="this.style.transform=\'scale(1)\'" ' +
-            'onclick="addStickerToCanvas(\'' + s + '\')">' + s + '</button>';
+            'onclick="addStickerToCanvas(\''+s+'\')">' + s + '</button>';
     });
-    html += '</div>';
+    defaultHtml += '</div>';
+
+    var assetsGrid = '';
+    if (window.arjonaCustomAssets.length === 0) {
+        assetsGrid = '<div style="text-align:center; padding:24px; color:var(--tx3); font-size:12px;">No custom assets saved yet. Click "Save Selected Item" or upload an image!</div>';
+    } else {
+        assetsGrid = '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">';
+        window.arjonaCustomAssets.forEach(function(ast, idx) {
+            assetsGrid += '<div class="option-card" style="display:flex; flex-direction:column; gap:4px; padding:6px; background:var(--bg); border:1px solid var(--bd2); border-radius:8px;">' +
+                '<div style="width:100%; height:60px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--bd); border-radius:4px;">' +
+                '<img src="' + ast.src + '" style="max-width:100%; max-height:100%; object-fit:contain;"></div>' +
+                '<span style="font-size:10px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;">' + ast.name + '</span>' +
+                '<div style="display:flex; gap:4px; width:100%;">' +
+                '<button class="editor-back-btn" style="flex:1; width:auto; height:26px; padding:0; background:var(--ac); color:#fff; font-size:10px; font-weight:700; border:none;" onclick="applyCustomAssetToCanvas(' + idx + ')">➕ Add</button>' +
+                '<button class="editor-back-btn" style="width:26px; height:26px; padding:0; background:transparent; color:var(--dn); font-size:12px;" onclick="deleteCustomAsset(' + idx + ')" title="Delete asset">🗑️</button>' +
+                '</div></div>';
+        });
+        assetsGrid += '</div>';
+    }
+
+    var assetsHtml = '<div style="display:flex; flex-direction:column; gap:8px;">' +
+        '<div style="display:flex; gap:6px; background:var(--bd); padding:8px; border-radius:8px; border:1px solid var(--bd2);">' +
+        '<button class="editor-back-btn" style="flex:1; width:auto; height:32px; background:var(--ac); color:#fff; font-weight:700; border:none; font-size:11px;" onclick="saveSelectedItemAsCustomAsset()">➕ Save Selected Item as Asset</button>' +
+        '<button class="editor-back-btn" style="flex:1; width:auto; height:32px; background:var(--bd2); color:var(--tx1); font-size:11px;" onclick="triggerCustomAssetUpload()">📁 Upload Custom Sticker/Image</button>' +
+        '</div>' +
+        '<div style="font-size:11px; font-weight:700; color:var(--tx1); margin-top:2px;">Your Saved Custom Assets (' + window.arjonaCustomAssets.length + '):</div>' +
+        assetsGrid + '</div>';
+
+    var templatesGrid = '';
+    if (window.arjonaCustomTemplates.length === 0) {
+        templatesGrid = '<div style="text-align:center; padding:24px; color:var(--tx3); font-size:12px;">No custom design templates saved yet. Design something &amp; save!</div>';
+    } else {
+        templatesGrid = '<div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">';
+        window.arjonaCustomTemplates.forEach(function(tpl, idx) {
+            templatesGrid += '<div class="option-card" style="display:flex; flex-direction:column; gap:4px; padding:8px; background:var(--bg); border:1px solid var(--bd2); border-radius:8px;">' +
+                '<div style="width:100%; height:80px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--bd); border-radius:4px;">' +
+                '<img src="' + tpl.thumb + '" style="width:100%; height:100%; object-fit:cover;"></div>' +
+                '<span style="font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;">' + tpl.name + '</span>' +
+                '<div style="display:flex; gap:4px; width:100%;">' +
+                '<button class="editor-back-btn" style="flex:1; width:auto; height:28px; padding:0; background:var(--ac); color:#fff; font-size:11px; font-weight:700; border:none;" onclick="loadCustomTemplate(' + idx + ')">🚀 Load Template</button>' +
+                '<button class="editor-back-btn" style="width:28px; height:28px; padding:0; background:transparent; color:var(--dn); font-size:12px;" onclick="deleteCustomTemplate(' + idx + ')" title="Delete template">🗑️</button>' +
+                '</div></div>';
+        });
+        templatesGrid += '</div>';
+    }
+
+    var templatesHtml = '<div style="display:flex; flex-direction:column; gap:8px;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bd); padding:8px 10px; border-radius:8px; border:1px solid var(--bd2);">' +
+        '<div><div style="font-size:11px; font-weight:700; color:var(--tx1);">Save Current Canvas as Template</div>' +
+        '<div style="font-size:9px; color:var(--tx2);">Stores exact layer setup &amp; styles in your library</div></div>' +
+        '<button class="editor-back-btn" style="width:auto; height:32px; padding:0 12px; background:linear-gradient(135deg, #58A6FF, #A371F7); color:#fff; font-weight:700; border:none; font-size:11px;" onclick="saveCurrentCanvasAsTemplate()">💾 Save Template</button>' +
+        '</div>' +
+        '<div style="font-size:11px; font-weight:700; color:var(--tx1); margin-top:2px;">Your Saved Design Templates (' + window.arjonaCustomTemplates.length + '):</div>' +
+        templatesGrid + '</div>';
+
+    var bodyContent = activeTab === 'default' ? defaultHtml : (activeTab === 'assets' ? assetsHtml : templatesHtml);
+
     var overlay = document.createElement('div');
+    overlay.id = 'stickersAssetsModal';
     overlay.className = 'modal-overlay';
-    overlay.style.display = 'flex';
-    overlay.innerHTML = '<div class="modal-box"><div class="modal-head"><h2>Stickers</h2>' +
-        '<button class="modal-x" onclick="this.closest(\'.modal-overlay\').remove()">✕</button></div>' +
-        '<div class="modal-body">' + html + '</div></div>';
+    overlay.style.cssText = 'display:flex; z-index:999999;';
+    overlay.innerHTML = '<div class="modal-box" style="max-width:540px; width:95%; max-height:85vh; display:flex; flex-direction:column; overflow:hidden; border-radius:12px; border:1px solid var(--bd2); background:var(--bg);">' +
+        '<div class="modal-head" style="background:#10141C; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bd); flex-shrink:0;">' +
+        '<h2 style="font-size:14px; font-weight:800; color:var(--tx1); display:flex; align-items:center; gap:6px;">🎨 Creative Stickers &amp; Custom Assets Library</h2>' +
+        '<button class="modal-x" onclick="document.getElementById(\'stickersAssetsModal\').remove()" style="background:transparent; border:none; color:var(--tx2); font-size:16px; cursor:pointer;">✕</button></div>' +
+        '<div style="display:flex; background:var(--bd); border-bottom:1px solid var(--bd2); flex-shrink:0;">' +
+        '<button class="editor-back-btn" style="flex:1; height:38px; border-radius:0; border:none; border-bottom:' + (activeTab === 'default' ? '3px solid var(--ac)' : 'none') + '; background:' + (activeTab === 'default' ? 'var(--sf)' : 'transparent') + '; font-weight:' + (activeTab === 'default' ? '800' : '500') + '; color:' + (activeTab === 'default' ? 'var(--ac)' : 'var(--tx2)') + ';" onclick="openStickers(\'default\')">⭐ Default Stickers</button>' +
+        '<button class="editor-back-btn" style="flex:1; height:38px; border-radius:0; border:none; border-bottom:' + (activeTab === 'assets' ? '3px solid var(--ac)' : 'none') + '; background:' + (activeTab === 'assets' ? 'var(--sf)' : 'transparent') + '; font-weight:' + (activeTab === 'assets' ? '800' : '500') + '; color:' + (activeTab === 'assets' ? 'var(--ac)' : 'var(--tx2)') + ';" onclick="openStickers(\'assets\')">🎒 My Assets (' + window.arjonaCustomAssets.length + ')</button>' +
+        '<button class="editor-back-btn" style="flex:1; height:38px; border-radius:0; border:none; border-bottom:' + (activeTab === 'templates' ? '3px solid var(--ac)' : 'none') + '; background:' + (activeTab === 'templates' ? 'var(--sf)' : 'transparent') + '; font-weight:' + (activeTab === 'templates' ? '800' : '500') + '; color:' + (activeTab === 'templates' ? 'var(--ac)' : 'var(--tx2)') + ';" onclick="openStickers(\'templates\')">📐 Design Templates (' + window.arjonaCustomTemplates.length + ')</button>' +
+        '</div>' +
+        '<div class="modal-body" style="padding:14px; overflow-y:auto; flex:1;">' + bodyContent + '</div></div>';
     overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
     document.body.appendChild(overlay);
     if (window.lucide) lucide.createIcons();
@@ -1292,12 +1566,19 @@ function applyCollage(cols, rows) {
 
 function toggleEyedropper() {
     eyedropperMode = !eyedropperMode;
+    var loupe = document.getElementById('eyedropperLoupe');
     if (eyedropperMode) {
         document.body.classList.add('eyedropper-active');
-        canvas.style.cursor = 'crosshair';
+        var svgStr = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 4 6 6"/><path d="m4 20 6-6"/><path d="M19.1 8.9 15.1 4.9a2 2 0 0 0-2.8 0L9.5 7.7a2 2 0 0 0 0 2.8l4 4a2 2 0 0 0 2.8 0l2.8-2.8a2 2 0 0 0 0-2.8Z"/><path d="m4 20 2-2"/></svg>';
+        var cursorUrl = 'data:image/svg+xml;base64,' + btoa(svgStr);
+        canvas.style.cursor = 'url("' + cursorUrl + '") 0 26, crosshair';
+        canvas.style.setProperty('cursor', 'url("' + cursorUrl + '") 0 26, crosshair', 'important');
+        if (typeof showStatusBadge === 'function') showStatusBadge("👁️ Eyedropper Active: Click any pixel to pick color");
     } else {
         document.body.classList.remove('eyedropper-active');
-        canvas.style.cursor = 'default';
+        canvas.style.cursor = mode !== 'select' ? 'crosshair' : 'default';
+        if (loupe) loupe.style.display = 'none';
+        if (typeof showStatusBadge === 'function') showStatusBadge("👁️ Eyedropper Off");
     }
 }
 
@@ -1883,7 +2164,10 @@ function toggleTheme() {
     var n = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     h.setAttribute('data-theme', n);
     try { localStorage.setItem('ds_theme', n); } catch (e) { }
+    var ic = document.getElementById('themeIcon');
+    if (ic) ic.setAttribute('data-lucide', n === 'dark' ? 'moon' : 'sun');
     if (window.lucide) lucide.createIcons();
+    if (typeof sUI === 'function') sUI();
 }
 
 function initTheme() {
@@ -2364,14 +2648,32 @@ function restS(json, callback) {
     p.els.forEach(function (e) { if (e.type === 'image') imgCount++; });
     if (p.aiBg) imgCount++;
 
+    var doneCalled = false;
     function checkDone() {
+        if (doneCalled) return;
         loaded++;
         if (loaded >= imgCount) {
+            doneCalled = true;
             selId = null;
-            sUI();
+            if (typeof sUI === 'function') sUI();
+            if (typeof hideCornerHandles === 'function') hideCornerHandles();
+            if (typeof R === 'function') R();
             if (callback) callback();
-            else R();
         }
+    }
+
+    // Safety timeout in case image loading hangs offline or in sandboxed preview
+    if (imgCount > 0) {
+        setTimeout(function () {
+            if (!doneCalled) {
+                doneCalled = true;
+                selId = null;
+                if (typeof sUI === 'function') sUI();
+                if (typeof hideCornerHandles === 'function') hideCornerHandles();
+                if (typeof R === 'function') R();
+                if (callback) callback();
+            }
+        }, 350);
     }
 
     els = p.els.map(function (e) {
@@ -2384,6 +2686,7 @@ function restS(json, callback) {
             o.content = new Image();
             o.content.crossOrigin = 'anonymous';
             o.content.onload = checkDone;
+            o.content.onerror = checkDone;
             o.content.src = e.src || '';
             o.eraserMask = document.createElement('canvas');
             if (e.mask) {
@@ -2392,6 +2695,7 @@ function restS(json, callback) {
                     o.eraserMask.width = mi.width; o.eraserMask.height = mi.height;
                     o.eraserMask.getContext('2d').drawImage(mi, 0, 0);
                 };
+                mi.onerror = function() {};
                 mi.src = e.mask;
             } else {
                 o.eraserMask.width = 400; o.eraserMask.height = 400;
@@ -2405,14 +2709,19 @@ function restS(json, callback) {
     if (p.aiBg) {
         var bgImg = new Image();
         bgImg.onload = function () { aiBg = bgImg; checkDone(); };
+        bgImg.onerror = function () { aiBg = null; checkDone(); };
         bgImg.src = p.aiBg;
     } else {
         aiBg = null;
     }
 
-    if (imgCount === 0) {
+    if (imgCount === 0 && !doneCalled) {
+        doneCalled = true;
+        selId = null;
+        if (typeof sUI === 'function') sUI();
+        if (typeof hideCornerHandles === 'function') hideCornerHandles();
+        if (typeof R === 'function') R();
         if (callback) callback();
-        else R();
     }
 }
 
@@ -2564,6 +2873,10 @@ function mD(pt) {
     var hit = null;
     for (var i = els.length - 1; i >= 0; i--) { if (hitEl(els[i], x, y)) { hit = els[i]; break; } }
     if (hit) {
+        if (hit.locked) {
+            if (typeof showStatusBadge === 'function') showStatusBadge("🔒 Layer is locked");
+            return;
+        }
         selId = hit.id; drag = true;
         dX = x - hit.x; dY = y - hit.y;
         canvas.style.cursor = 'move';
@@ -2723,7 +3036,24 @@ function sUI() {
     var name = el ? (el.type === 'text' ? '"' + (el.text || '').substring(0, 8) + '"' : 'Image') : 'None';
     if (lb) lb.innerText = name;
     if (lbd) lbd.innerText = name;
-    if (!el) { showSelBar(null); return; }
+    if (!el) {
+        showSelBar(null);
+        if (window._lastDynamicSelId !== null) {
+            window._lastDynamicSelId = null;
+        }
+        if (typeof syncDynamicToolbarVisibility === 'function') syncDynamicToolbarVisibility();
+        return;
+    }
+
+    if (window._lastDynamicSelId !== selId && window.innerWidth <= 900) {
+        window._lastDynamicSelId = selId;
+        if (el.type === 'text') {
+            if (typeof selectBottomTab === 'function') selectBottomTab('type', null, true);
+        } else if (el.type === 'image') {
+            if (typeof selectBottomTab === 'function') selectBottomTab('image', null, true);
+        }
+    }
+    if (typeof syncDynamicToolbarVisibility === 'function') syncDynamicToolbarVisibility();
 
     var setVal = function (id, val) { var e = document.getElementById(id); if (e) e.value = val; };
     var setTxt_ = function (id, val) { var e = document.getElementById(id); if (e) e.innerText = val; };
@@ -3255,10 +3585,54 @@ function addAILayer(img) {
 
 /* ===== MISC ===== */
 function resetAll() {
-    if (!confirm('Reset everything?')) return;
+    var modal = document.getElementById('resetConfirmModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'resetConfirmModal';
+        modal.className = 'modal-overlay';
+        modal.style.cssText = 'display:flex; z-index:9999999;';
+        modal.innerHTML = `
+            <div class="modal-box" style="max-width:400px; width:90%; background:var(--bg); border:1px solid var(--bd2); border-radius:14px; overflow:hidden; box-shadow:0 12px 36px rgba(0,0,0,0.65);">
+                <div class="modal-head" style="background:#10141C; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bd);">
+                    <h2 style="font-size:15px; font-weight:800; color:var(--tx1); display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:18px;">⚠️</span> Reset Everything?
+                    </h2>
+                    <button class="modal-x" onclick="closeResetConfirmModal()" style="background:transparent; border:none; color:var(--tx2); font-size:16px; cursor:pointer;">✕</button>
+                </div>
+                <div class="modal-body" style="padding:18px; display:flex; flex-direction:column; gap:16px;">
+                    <p style="font-size:13px; color:var(--tx2); line-height:1.5; margin:0;">
+                        Are you sure you want to reset the entire canvas? This will remove all current image layers, text elements, background colors, and history steps. This action cannot be undone.
+                    </p>
+                    <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px;">
+                        <button class="editor-back-btn" style="width:auto; height:36px; padding:0 18px; background:var(--bd); color:var(--tx1); font-size:13px; font-weight:600; border-radius:8px; cursor:pointer;" onclick="closeResetConfirmModal()">No, Cancel</button>
+                        <button class="btn-action-primary" style="width:auto; height:36px; padding:0 20px; background:var(--dn); color:#fff; font-size:13px; font-weight:700; border-radius:8px; border:none; cursor:pointer; box-shadow:0 4px 12px rgba(255,61,113,0.3);" onclick="executeResetAllConfirmed()">Yes, Reset All</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        modal.addEventListener('click', function(e) { if (e.target === modal) closeResetConfirmModal(); });
+        document.body.appendChild(modal);
+    } else {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeResetConfirmModal() {
+    var modal = document.getElementById('resetConfirmModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function executeResetAllConfirmed() {
+    closeResetConfirmModal();
     els = []; selId = null; aiBg = null; bgCf = null;
     uS = []; rS = []; histLabels = [];
-    sUI(); R(); updateCanvasInfo();
+    if (typeof sUI === 'function') sUI();
+    if (typeof hideCornerHandles === 'function') hideCornerHandles();
+    if (typeof R === 'function') R();
+    if (typeof updateCanvasInfo === 'function') updateCanvasInfo();
+    if (typeof renderHistList === 'function') renderHistList();
+    if (typeof renderLayersPanel === 'function') renderLayersPanel();
+    if (typeof showStatusBadge === 'function') showStatusBadge('🔄 Canvas successfully reset to defaults.');
 }
 function exportHD() { openExport(); }
 function doVoice(ev) {
@@ -3275,17 +3649,17 @@ function doVoice(ev) {
    INIT
    ============================================ */
 window.addEventListener('DOMContentLoaded', function () {
-    Anim = window.AnimationManager || null;
-    UI = window.UIAnimations || null;
-    Physics = window.PhysicsEngine || null;
-    API = window.ApiClient || null;
+    try { Anim = window.AnimationManager || null; } catch(e) {}
+    try { UI = window.UIAnimations || null; } catch(e) {}
+    try { Physics = window.PhysicsEngine || null; } catch(e) {}
+    try { API = window.ApiClient || null; } catch(e) {}
 
-    initSplash();
-    initTheme();
-    initUniverseBg();
-    initAiChatDrag();
-    initDropZone();
-    initCropListeners();
+    try { initSplash(); } catch(e) { console.warn('initSplash err:', e); }
+    try { initTheme(); } catch(e) { console.warn('initTheme err:', e); }
+    try { initUniverseBg(); } catch(e) { console.warn('initUniverseBg err:', e); }
+    try { initAiChatDrag(); } catch(e) { console.warn('initAiChatDrag err:', e); }
+    try { initDropZone(); } catch(e) { console.warn('initDropZone err:', e); }
+    try { initCropListeners(); } catch(e) { console.warn('initCropListeners err:', e); }
 
     var chatNebula = null, sideNebula = null;
     var aiNbCanvas = document.getElementById('aiNebula');
@@ -3433,14 +3807,14 @@ window.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    setupC(1280, 720);
-    updateCanvasInfo();
-    sH('Init');
-    if (window.lucide) lucide.createIcons();
-    console.log('Arjona AI Studio Ready — All Features Loaded (Cleaned)');
+    try { setupC(1280, 720); } catch(e) { console.warn('setupC err:', e); }
+    try { updateCanvasInfo(); } catch(e) { console.warn('updateCanvasInfo err:', e); }
+    try { sH('Init'); } catch(e) { console.warn('sH Init err:', e); }
+    try { if (window.lucide) lucide.createIcons(); } catch(e) { console.warn('Lucide createIcons err:', e); }
+    console.log('Arjona AI Studio Ready — All Features Loaded (Cleaned & Live Server Bulletproof)');
 });
 
-/* ===== DOUBLE TAP TEXT → OPEN TYPE BAR ===== */
+/* ===== DOUBLE TAP TEXT / ELEMENT → OPEN TYPE OR MOVE BAR ===== */
 var lastTapTime = 0, lastTapX = 0, lastTapY = 0;
 document.addEventListener('DOMContentLoaded', function () {
     var cv = document.getElementById('mainCanvas');
@@ -3449,29 +3823,30 @@ document.addEventListener('DOMContentLoaded', function () {
         var now = Date.now();
         var touch = e.changedTouches[0];
         var pt = touchToCanvas(touch);
-        if (now - lastTapTime < 300 && Math.abs(pt.x - lastTapX) < 30 && Math.abs(pt.y - lastTapY) < 30) {
+        if (now - lastTapTime < 300 && Math.abs(pt.x - lastTapX) < 35 && Math.abs(pt.y - lastTapY) < 35) {
             var hit = null;
             for (var i = els.length - 1; i >= 0; i--) { if (hitEl(els[i], pt.x, pt.y)) { hit = els[i]; break; } }
             if (hit && hit.type === 'text') {
-                selId = hit.id; sUI();
+                selId = hit.id; if(typeof sUI === 'function') sUI();
                 var di = document.getElementById('txtIn');
-                var mi = document.getElementById('mobTxtIn');
                 if (di) di.value = hit.text || '';
-                if (mi) mi.value = hit.text || '';
                 if (window.innerWidth <= 900) {
-                    var typeBtn = document.querySelector('[data-sheet="sheetText"]');
-                    if (typeBtn) openBottomSheet(typeBtn, 'sheetText');
-                    setTimeout(function () { if (mi) { mi.focus(); mi.select(); } }, 300);
+                    if (typeof selectBottomTab === 'function') selectBottomTab('type');
+                    if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'typography', label: 'Typography', requiresSelection: false }, 'Type');
+                    setTimeout(function () {
+                        var inp = document.querySelector('.mob-tool-editor .text-input-field');
+                        if (inp) { inp.value = hit.text || ''; inp.focus(); inp.select(); }
+                    }, 150);
                 } else {
                     var textTab = document.querySelector('[data-p="bpText"]');
                     if (textTab) bpTab(textTab);
                     setTimeout(function () { if (di) { di.focus(); di.select(); } }, 200);
                 }
             } else if (hit && hit.type === 'image') {
-                selId = hit.id; sUI(); showCornerHandles(hit);
+                selId = hit.id; if(typeof sUI === 'function') sUI(); if(typeof showCornerHandles === 'function') showCornerHandles(hit);
                 if (window.innerWidth <= 900) {
-                    var moveBtn = document.querySelector('[data-sheet="sheetTrans"]');
-                    if (moveBtn) openBottomSheet(moveBtn, 'sheetTrans');
+                    if (typeof selectBottomTab === 'function') selectBottomTab('move');
+                    if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale', label: 'Scale', requiresSelection: false }, 'Move');
                 } else {
                     var transTab = document.querySelector('[data-p="bpTrans"]');
                     if (transTab) bpTab(transTab);
@@ -3488,18 +3863,33 @@ document.addEventListener('DOMContentLoaded', function () {
         var hit = null;
         for (var i = els.length - 1; i >= 0; i--) { if (hitEl(els[i], pt.x, pt.y)) { hit = els[i]; break; } }
         if (hit && hit.type === 'text') {
-            selId = hit.id; sUI();
+            selId = hit.id; if(typeof sUI === 'function') sUI();
             var di = document.getElementById('txtIn');
-            var mi = document.getElementById('mobTxtIn');
             if (di) di.value = hit.text || '';
-            if (mi) mi.value = hit.text || '';
-            var textTab = document.querySelector('[data-p="bpText"]');
-            if (textTab) bpTab(textTab);
-            setTimeout(function () { if (di) { di.focus(); di.select(); } }, 200);
+            if (window.innerWidth <= 900) {
+                if (typeof selectBottomTab === 'function') selectBottomTab('type');
+                if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'typography', label: 'Typography', requiresSelection: false }, 'Type');
+                setTimeout(function () {
+                    var inp = document.querySelector('.mob-tool-editor .text-input-field');
+                    if (inp) { inp.value = hit.text || ''; inp.focus(); inp.select(); }
+                }, 150);
+            } else {
+                var textTab = document.querySelector('[data-p="bpText"]');
+                if (textTab) bpTab(textTab);
+                setTimeout(function () { if (di) { di.focus(); di.select(); } }, 200);
+            }
+        } else if (hit && hit.type === 'image') {
+            selId = hit.id; if(typeof sUI === 'function') sUI(); if(typeof showCornerHandles === 'function') showCornerHandles(hit);
+            if (window.innerWidth <= 900) {
+                if (typeof selectBottomTab === 'function') selectBottomTab('move');
+                if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale', label: 'Scale', requiresSelection: false }, 'Move');
+            } else {
+                var transTab = document.querySelector('[data-p="bpTrans"]');
+                if (transTab) bpTab(transTab);
+            }
         }
     });
 });
-
 /* ===== SERVICE WORKER UPDATE CHECK ===== */
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', function () {
@@ -3518,43 +3908,46 @@ var currentMobEditorOption = null;
 var currentMobCategoryTitle = "Settings";
 
 var mobTabDefinitions = {
-    move: {
-        title: "Move",
-        options: [
-            { id: "scale", label: "Scale", requiresSelection: true },
-            { id: "rotate", label: "Rotate", requiresSelection: true },
-            { id: "opacity", label: "Opacity", requiresSelection: true }
-        ]
-    },
     type: {
         title: "Type",
         options: [
-            { id: "typography", label: "Typography", requiresSelection: true },
-            { id: "text_effects", label: "Text effects", requiresSelection: true }
+            { id: "move_position", label: "Position" },
+            { id: "pos_abs_rel", label: "Abs/Rel Pos" },
+            { id: "advanced_align", label: "Align", isDirectAction: false },
+            { id: "typography", label: "Typography" },
+            { id: "color_style", label: "Colour" },
+            { id: "text_bg_style", label: "BG & Shadow" },
+            { id: "text_effects", label: "Text effects" },
+            { id: "effects", label: "Effects" },
+            { id: "opacity", label: "Opacity" },
+            { id: "reflection", label: "Reflection" },
+            { id: "emboss", label: "Emboss" }
         ]
     },
-    fx: {
-        title: "FX",
+    image: {
+        title: "Image",
         options: [
-            { id: "effects", label: "Effects", requiresSelection: true },
-            { id: "emboss", label: "Emboss", requiresSelection: true },
-            { id: "reflection", label: "Reflection", requiresSelection: true }
+            { id: "move_position", label: "Position" },
+            { id: "pos_abs_rel", label: "Abs/Rel Pos" },
+            { id: "advanced_align", label: "Align", isDirectAction: false },
+            { id: "img_manual_bg_remove", label: "BG Remove & Cut" },
+            { id: "grading", label: "Grading", requiresSelection: true },
+            { id: "effects", label: "Effects" },
+            { id: "pixart", label: "PIXART", requiresSelection: true },
+            { id: "presets", label: "Presets", requiresSelection: true },
+            { id: "scale_rotate", label: "Scale & Rotate" },
+            { id: "opacity", label: "Opacity" },
+            { id: "reflection", label: "Reflection" },
+            { id: "emboss", label: "Emboss" },
+            { id: "crop", label: "Crop", isDirectAction: false, excludeConfirm: true, requiresSelection: true }
         ]
     },
     mask: {
         title: "Mask",
         options: [
-            { id: "mask_brush", label: "Mask & Erase", requiresSelection: true },
-            { id: "restore_mask", label: "Restore Mask", requiresSelection: true },
-            { id: "ai_remove", label: "AI Remove", requiresSelection: true }
-        ]
-    },
-    grade: {
-        title: "Grade",
-        options: [
-            { id: "grading", label: "Grading", requiresSelection: true },
-            { id: "pixart", label: "PIXART", requiresSelection: true },
-            { id: "presets", label: "Presets", requiresSelection: true }
+            { id: "mask_brush", label: "Mask & Erase" },
+            { id: "restore_mask", label: "Restore Mask", isDirectAction: false },
+            { id: "ai_remove", label: "AI Remove", isDirectAction: false }
         ]
     },
     library: {
@@ -3622,13 +4015,13 @@ var mobTabDefinitions = {
                 { id: "shape_heart", label: "Heart", isDirectAction: false }
             ],
             more_ai: [
-                { id: "enhance", label: "Enhance", isDirectAction: false, requiresSelection: true },
-                { id: "remove", label: "Remove", isDirectAction: false, requiresSelection: true },
+                { id: "enhance", label: "Enhance", isDirectAction: false },
+                { id: "remove", label: "Remove", isDirectAction: false },
                 { id: "templates_lib", label: "Tpits", isDirectAction: false, excludeConfirm: true },
                 { id: "layers_lib", label: "Layers", isDirectAction: false },
                 { id: "pick", label: "Pick Color", isDirectAction: false },
                 { id: "grid_lib", label: "Grid", isDirectAction: false },
-                { id: "smart_bg", label: "Smart BG", isDirectAction: false, requiresSelection: true },
+                { id: "smart_bg", label: "Smart BG", isDirectAction: false },
                 { id: "color_bg", label: "Color BG", isDirectAction: false }
             ]
         }
@@ -3639,10 +4032,12 @@ window.addEventListener("DOMContentLoaded", function() {
     selectBottomTab("move");
 });
 
-function selectBottomTab(tabId, btnElement) {
+function selectBottomTab(tabId, btnElement, isAutoDynamic) {
     currentMobTab = tabId;
-    currentMobSubCategory = null;
-    closeMobToolEditor();
+    if (!isAutoDynamic) {
+        currentMobSubCategory = null;
+        closeMobToolEditor();
+    }
 
     var btns = document.querySelectorAll(".mob-bar-btn");
     for (var i = 0; i < btns.length; i++) {
@@ -3653,6 +4048,69 @@ function selectBottomTab(tabId, btnElement) {
         }
     }
     renderToolRowBar();
+}
+
+function getMobToolSign(id, label) {
+    var s = 'viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="1.8" fill="none" style="flex-shrink:0; margin-bottom:1px;"';
+    if (id === 'image' || id === 'Image') return `<svg ${s}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+    if (id === 'advanced_align' || id === 'Align') return `<svg ${s}><line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`;
+    if (id === 'pos_abs_rel') return `<svg ${s}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="12"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>`;
+    if (id === 'text_bg_style') return `<svg ${s}><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 15h10M12 9v6"/></svg>`;
+    if (id === 'img_manual_bg_remove') return `<svg ${s}><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1"/><path d="M18 8h4"/><path d="M18 12h4"/><circle cx="8" cy="10" r="2"/></svg>`;
+    if (id === 'scale_rotate') return `<svg ${s}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/><path d="M21 12a9 9 0 1 1-9-9"/></svg>`;
+    if (id === 'move_position' || id === 'Position') return `<svg ${s}><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="19 9 22 12 19 15"/><polyline points="9 19 12 22 15 19"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`;
+    if (id === 'color_style' || id === 'Colour') return `<svg ${s}><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`;
+    if (id === 'scale') return `<svg ${s}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4"/><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/></svg>`;
+    if (id === 'rotate') return `<svg ${s}><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`;
+    if (id === 'opacity') return `<svg ${s}><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor" fill-opacity="0.3"/></svg>`;
+    if (id === 'typography' || id === 'more_text') return `<svg ${s}><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`;
+    if (id === 'text_effects') return `<svg ${s}><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M12 3v13"/><path d="m8 12 4 4 4-4"/><circle cx="18" cy="5" r="1"/><circle cx="6" cy="5" r="1"/></svg>`;
+    if (id === 'effects') return `<svg ${s}><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="m17.8 11.8 1.4 1.4"/><path d="m10.6 4.6 1.4 1.4"/><path d="M11 11 3 19"/></svg>`;
+    if (id === 'emboss') return `<svg ${s}><rect x="4" y="4" width="16" height="16" rx="2" stroke-width="2"/><path d="M8 8h8v8H8z" fill="currentColor" fill-opacity="0.2"/><path d="M4 20l4-4"/><path d="M20 4l-4 4"/></svg>`;
+    if (id === 'reflection') return `<svg ${s}><path d="M12 3v18"/><path d="M16 7l-4-4-4 4"/><path d="M8 17l4 4 4-4"/><path d="M3 12h18" stroke-dasharray="2 2"/></svg>`;
+    if (id === 'mask_brush') return `<svg ${s}><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>`;
+    if (id === 'restore_mask') return `<svg ${s}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`;
+    if (id === 'ai_remove' || id === 'remove') return `<svg ${s}><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>`;
+    if (id === 'grading') return `<svg ${s}><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><circle cx="4" cy="12" r="2"/><circle cx="12" cy="10" r="2"/><circle cx="20" cy="14" r="2"/></svg>`;
+    if (id === 'pixart') return `<svg ${s}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`;
+    if (id === 'presets') return `<svg ${s}><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>`;
+    if (id === 'lib_layers' || id === 'layers_lib' || id === 'panel') return `<svg ${s}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`;
+    if (id === 'lib_align') return `<svg ${s}><line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/></svg>`;
+    if (id === 'lib_bg' || id === 'color_bg' || id === 'gradient') return `<svg ${s}><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z"/></svg>`;
+    if (id === 'upload') return `<svg ${s}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`;
+    if (id === 'front') return `<svg ${s}><polyline points="18 15 12 9 6 15"/><line x1="12" y1="9" x2="12" y2="21"/></svg>`;
+    if (id === 'back') return `<svg ${s}><polyline points="6 9 12 15 18 9"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`;
+    if (id === 'dup') return `<svg ${s}><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    if (id === 'left') return `<svg ${s}><line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/></svg>`;
+    if (id === 'center') return `<svg ${s}><line x1="18" y1="6" x2="6" y2="6"/><line x1="21" y1="12" x2="3" y2="12"/><line x1="18" y1="18" x2="6" y2="18"/></svg>`;
+    if (id === 'right') return `<svg ${s}><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="7" y2="18"/></svg>`;
+    if (id === 'middle') return `<svg ${s}><line x1="12" y1="2" x2="12" y2="22"/><line x1="4" y1="12" x2="20" y2="12"/></svg>`;
+    if (id === 'grid' || id === 'grid_lib') return `<svg ${s}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>`;
+    if (id === 'templates' || id === 'templates_lib' || id === 'tpits') return `<svg ${s}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`;
+    if (id === 'projects') return `<svg ${s}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+    if (id === 'more_quick') return `<svg ${s}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+    if (id === 'more_creative') return `<svg ${s}><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
+    if (id === 'more_shapes') return `<svg ${s}><path d="M3 12h6v6H3z"/><circle cx="18" cy="6" r="3"/><polygon points="15,20 21,20 18,14"/></svg>`;
+    if (id === 'more_ai') return `<svg ${s}><path d="m12 3-1.91 5.82A2 2 0 0 1 8.82 10.09L3 12l5.82 1.91a2 2 0 0 1 1.27 1.27L12 21l1.91-5.82a2 2 0 0 1 1.27-1.27L21 12l-5.82-1.91a2 2 0 0 1-1.27-1.27Z"/></svg>`;
+    if (id === 'crop') return `<svg ${s}><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>`;
+    if (id === 'draw') return `<svg ${s}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`;
+    if (id === 'flip') return `<svg ${s}><path d="M17 4l4 4-4 4"/><path d="M7 20l-4-4 4-4"/><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="2 2"/></svg>`;
+    if (id === 'export') return `<svg ${s}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+    if (id === 'stickers') return `<svg ${s}><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>`;
+    if (id === 'frames') return `<svg ${s}><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10"/></svg>`;
+    if (id === 'collage') return `<svg ${s}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="12" y1="12" x2="21" y2="12"/></svg>`;
+    if (id === 'mark') return `<svg ${s}><path d="M14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><circle cx="12" cy="12" r="10"/></svg>`;
+    if (id === 'qr') return `<svg ${s}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="5" y="5" width="3" height="3" fill="currentColor"/><rect x="16" y="5" width="3" height="3" fill="currentColor"/><rect x="16" y="16" width="3" height="3" fill="currentColor"/><rect x="3" y="14" width="3" height="3"/><rect x="8" y="18" width="3" height="3"/><rect x="8" y="14" width="2" height="2"/></svg>`;
+    if (id === 'shape_rect') return `<svg ${s}><rect x="3" y="5" width="18" height="14" rx="2"/></svg>`;
+    if (id === 'shape_circle') return `<svg ${s}><circle cx="12" cy="12" r="9"/></svg>`;
+    if (id === 'shape_tri') return `<svg ${s}><polygon points="12,3 2,20 22,20"/></svg>`;
+    if (id === 'shape_star') return `<svg ${s}><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`;
+    if (id === 'shape_arrow' || label === 'Arrow') return `<svg ${s}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+    if (id === 'shape_heart') return `<svg ${s}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
+    if (id === 'enhance') return `<svg ${s}><path d="m13 2-2 10h9L7 22l2-10H0L13 2Z"/></svg>`;
+    if (id === 'pick' || label === 'Pick Color') return `<svg ${s}><path d="m14 4 6 6"/><path d="m4 20 6-6"/><path d="M19.1 8.9 15.1 4.9a2 2 0 0 0-2.8 0L9.5 7.7a2 2 0 0 0 0 2.8l4 4a2 2 0 0 0 2.8 0l2.8-2.8a2 2 0 0 0 0-2.8Z"/><path d="m4 20 2-2"/></svg>`;
+    if (id === 'smart_bg') return `<svg ${s}><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v1"/><path d="M18 8h4"/><path d="M18 12h4"/><path d="M18 16h4"/><circle cx="8" cy="10" r="2"/><path d="M4 17c0-2.2 1.8-4 4-4s4 1.8 4 4"/></svg>`;
+    return `<svg ${s}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>`;
 }
 
 function renderToolRowBar() {
@@ -3667,7 +4125,7 @@ function renderToolRowBar() {
             def.primaryCategories.forEach(function(cat) {
                 var btn = document.createElement("button");
                 btn.className = "tool-raw-btn";
-                btn.innerHTML = '<span>' + cat.label + '</span>';
+                btn.innerHTML = getMobToolSign(cat.id, cat.label) + '<span style="font-size:10px; font-weight:600; line-height:1.1; white-space:nowrap;">' + cat.label + '</span>';
                 btn.onclick = function() {
                     currentMobSubCategory = cat.id;
                     renderToolRowBar();
@@ -3681,7 +4139,7 @@ function renderToolRowBar() {
 
             var backBtn = document.createElement("button");
             backBtn.className = "tool-raw-btn secondary-back";
-            backBtn.innerHTML = '&larr; <span>' + primaryLabel + '</span>';
+            backBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" style="flex-shrink:0; margin-bottom:1px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg><span style="font-size:10px; font-weight:700; line-height:1.1; white-space:nowrap;">' + primaryLabel + '</span>';
             backBtn.onclick = function() {
                 currentMobSubCategory = null;
                 closeMobToolEditor();
@@ -3692,7 +4150,7 @@ function renderToolRowBar() {
             subList.forEach(function(opt) {
                 var btn = document.createElement("button");
                 btn.className = "tool-raw-btn";
-                btn.innerHTML = '<span>' + opt.label + '</span>';
+                btn.innerHTML = getMobToolSign(opt.id, opt.label) + '<span style="font-size:10px; font-weight:600; line-height:1.1; white-space:nowrap;">' + opt.label + '</span>';
                 if (currentMobEditorOption && currentMobEditorOption.id === opt.id) btn.classList.add("active");
                 btn.onclick = function() {
                     var allRowBtns = rowEl.querySelectorAll(".tool-raw-btn");
@@ -3712,7 +4170,7 @@ function renderToolRowBar() {
         def.options.forEach(function(opt) {
             var btn = document.createElement("button");
             btn.className = "tool-raw-btn";
-            btn.innerHTML = '<span>' + opt.label + '</span>';
+            btn.innerHTML = getMobToolSign(opt.id, opt.label) + '<span style="font-size:10px; font-weight:600; line-height:1.1; white-space:nowrap;">' + opt.label + '</span>';
             if (currentMobEditorOption && currentMobEditorOption.id === opt.id) btn.classList.add("active");
             btn.onclick = function() {
                 var allRowBtns = rowEl.querySelectorAll(".tool-raw-btn");
@@ -3729,7 +4187,6 @@ function renderToolRowBar() {
         });
     }
 }
-
 function handleDirectMobAction(actionId) {
     if (actionId === "upload") { var f = document.getElementById('qImg'); if (f) f.click(); }
     else if (actionId === "front") { if (typeof layerOp === 'function') layerOp('front'); }
@@ -3812,7 +4269,230 @@ function checkMobSelectionOrBanner(opt, container) {
 function renderMobEditorControls(opt, container) {
     var hasSelection = checkMobSelectionOrBanner(opt, container);
 
-    if (opt.id === "scale") {
+    if (opt.id === "advanced_align" || opt.id === "lib_align") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="background:var(--bd); border:1px solid var(--bd2); border-radius:8px; padding:6px 10px; font-size:11px; font-weight:700; color:var(--tx1); display:flex; justify-content:space-between; align-items:center;">
+                <span>Advanced Alignment &amp; Distribution</span>
+                <span style="font-size:9px; color:var(--ac);">Tap to align</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+                <button class="editor-back-btn" style="height:32px; font-size:11px; justify-content:center;" onclick="if(typeof alignEl==='function') alignEl('l');">⬅️ Left</button>
+                <button class="editor-back-btn" style="height:32px; font-size:11px; justify-content:center;" onclick="if(typeof alignEl==='function') alignEl('c');">🎯 Center</button>
+                <button class="editor-back-btn" style="height:32px; font-size:11px; justify-content:center;" onclick="if(typeof alignEl==='function') alignEl('r');">➡️ Right</button>
+                <button class="editor-back-btn" style="height:32px; font-size:11px; justify-content:center;" onclick="if(typeof alignEl==='function') alignEl('m');">🔂 Middle</button>
+            </div>
+            <div style="display:flex; gap:6px; margin-top:2px;">
+                <button class="btn-action-primary" style="flex:1; background:var(--bd2); color:var(--tx1); font-size:11px; padding:6px;" onclick="if(typeof alignEl==='function') alignEl('t');">⬆️ Top</button>
+                <button class="btn-action-primary" style="flex:1; background:var(--bd2); color:var(--tx1); font-size:11px; padding:6px;" onclick="if(typeof alignEl==='function') alignEl('b');">⬇️ Bottom</button>
+                <button class="btn-action-primary" style="flex:1; background:var(--ac); color:#fff; font-size:11px; padding:6px;" onclick="if(typeof alignBetweenLayers === 'function') alignBetweenLayers('h');" title="Distribute horizontal gap evenly between layers">↔️ Between (H)</button>
+                <button class="btn-action-primary" style="flex:1; background:var(--ac); color:#fff; font-size:11px; padding:6px;" onclick="if(typeof alignBetweenLayers === 'function') alignBetweenLayers('v');" title="Distribute vertical gap evenly between layers">↕️ Between (V)</button>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "pos_abs_rel") {
+        var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+        var curX = el ? Math.round(el.x) : 0, curY = el ? Math.round(el.y) : 0;
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="display:flex; gap:6px; background:var(--bd); padding:4px; border-radius:8px; border:1px solid var(--bd2);">
+                <button class="editor-back-btn active-pos-tab" id="posTabAbsBtn" style="flex:1; height:28px; background:var(--ac); color:#fff; font-weight:700;" onclick="switchPosAbsRelTab('abs')">📍 Absolute Coordinates</button>
+                <button class="editor-back-btn" id="posTabRelBtn" style="flex:1; height:28px; background:transparent; color:var(--tx2); font-weight:600;" onclick="switchPosAbsRelTab('rel')">📐 Relative Nudge &amp; Jump</button>
+            </div>
+            
+            <!-- Absolute Section -->
+            <div id="posAbsSection" style="display:flex; flex-direction:column; gap:6px;">
+                <div style="display:flex; gap:8px;">
+                    <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:10px; font-weight:700; color:var(--tx1);">Absolute X (px):</label>
+                        <input type="number" class="text-input-field" value="${curX}" oninput="if(typeof setAbsolutePos === 'function') setAbsolutePos('x', this.value);">
+                    </div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:10px; font-weight:700; color:var(--tx1);">Absolute Y (px):</label>
+                        <input type="number" class="text-input-field" value="${curY}" oninput="if(typeof setAbsolutePos === 'function') setAbsolutePos('y', this.value);">
+                    </div>
+                </div>
+                <div class="sheet-sld">
+                    <div class="sheet-sld-head"><label>Scale &amp; Rotation</label><span>${Math.round(el?.scale||100)}% · ${Math.round(el?.rotate||0)}°</span></div>
+                    <div style="display:flex; gap:6px;">
+                        <input type="range" min="10" max="300" value="${Math.round(el?.scale||100)}" oninput="if(typeof setProp==='function') setProp('scale', this.value);" title="Scale">
+                        <input type="range" min="0" max="360" value="${Math.round(el?.rotate||0)}" oninput="if(typeof setProp==='function') setProp('rotate', this.value);" title="Rotate">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Relative Section -->
+            <div id="posRelSection" style="display:none; flex-direction:column; gap:6px;">
+                <div style="display:flex; gap:6px; justify-content:space-between; align-items:center; font-size:11px;">
+                    <span style="font-weight:700;">Relative Jump Presets:</span>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="if(typeof jumpRelativePos==='function') jumpRelativePos('nw')">↖️ Top-Left</button>
+                    <button class="editor-back-btn" style="height:28px; font-size:10px; background:var(--ac); color:#fff; font-weight:700;" onclick="if(typeof jumpRelativePos==='function') jumpRelativePos('center')">🎯 Exact Center</button>
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="if(typeof jumpRelativePos==='function') jumpRelativePos('ne')">↗️ Top-Right</button>
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="if(typeof jumpRelativePos==='function') jumpRelativePos('sw')">↙️ Bottom-Left</button>
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="if(typeof jumpRelativePos==='function') jumpRelativePos('mid_y')">↕️ Center Y</button>
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="if(typeof jumpRelativePos==='function') jumpRelativePos('se')">↘️ Bottom-Right</button>
+                </div>
+                <div style="display:flex; gap:6px; margin-top:2px;">
+                    <button class="editor-back-btn" style="flex:1; height:28px; font-size:10px;" onclick="nudgeSelectedPos(-10, 0)">⬅️ -10px X</button>
+                    <button class="editor-back-btn" style="flex:1; height:28px; font-size:10px;" onclick="nudgeSelectedPos(10, 0)">➡️ +10px X</button>
+                    <button class="editor-back-btn" style="flex:1; height:28px; font-size:10px;" onclick="nudgeSelectedPos(0, -10)">⬆️ -10px Y</button>
+                    <button class="editor-back-btn" style="flex:1; height:28px; font-size:10px;" onclick="nudgeSelectedPos(0, 10)">⬇️ +10px Y</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "text_bg_style") {
+        var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+        var hasBox = el && el.hasBgBox ? true : false;
+        var boxCol = el && el.bgBoxColor ? el.bgBoxColor : "#161B22";
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bd); padding:8px 10px; border-radius:8px; border:1px solid var(--bd2);">
+                <span style="font-size:11px; font-weight:700; color:var(--tx1);">🏷️ Text Background Card / Box</span>
+                <button class="btn-action-primary" style="width:auto; padding:4px 12px; font-size:11px; background:${hasBox ? 'var(--ac)' : 'var(--bd2)'}; color:${hasBox ? '#fff' : 'var(--tx1)'};" onclick="if(typeof toggleTextBoxBg === 'function') toggleTextBoxBg(this)">${hasBox ? 'BOX ON' : 'BOX OFF'}</button>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Box Color &amp; Opacity</label><span>Style</span></div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="color" value="${boxCol}" onchange="if(typeof setTextBoxProp==='function') setTextBoxProp('bgBoxColor', this.value);" style="width:32px; height:24px; border:none; background:transparent; cursor:pointer;">
+                    <input type="range" min="0" max="100" value="${el?.bgBoxOpacity || 80}" oninput="if(typeof setTextBoxProp==='function') setTextBoxProp('bgBoxOpacity', parseInt(this.value));" style="flex:1;" title="Box Opacity">
+                </div>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Corner Radius &amp; Padding</label><span>${el?.bgBoxRadius || 10}px</span></div>
+                <div style="display:flex; gap:6px;">
+                    <input type="range" min="0" max="50" value="${el?.bgBoxRadius || 10}" oninput="if(typeof setTextBoxProp==='function') setTextBoxProp('bgBoxRadius', parseInt(this.value));" title="Radius">
+                    <input type="range" min="4" max="40" value="${el?.bgBoxPadding || 16}" oninput="if(typeof setTextBoxProp==='function') setTextBoxProp('bgBoxPadding', parseInt(this.value));" title="Padding">
+                </div>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Text &amp; Box Shadow Blur &amp; Offset</label><span>Shadow</span></div>
+                <div style="display:flex; gap:6px;">
+                    <input type="color" value="${el?.shadowColor || '#000000'}" onchange="if(typeof setTextBoxProp==='function') setTextBoxProp('shadowColor', this.value);" style="width:28px; height:22px; border:none; background:transparent; cursor:pointer;">
+                    <input type="range" min="0" max="40" value="${el?.shadowBlur || 0}" oninput="if(typeof setTextBoxProp==='function') setTextBoxProp('shadowBlur', parseInt(this.value));" title="Shadow Blur">
+                    <input type="range" min="-30" max="30" value="${el?.shadowOffsetX || 0}" oninput="if(typeof setTextBoxProp==='function') setTextBoxProp('shadowOffsetX', parseInt(this.value));" title="Shadow Offset X">
+                </div>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "img_manual_bg_remove") {
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="background:linear-gradient(135deg, rgba(35,134,54,0.2), rgba(88,166,255,0.2)); border:1px solid #48BB78; border-radius:8px; padding:8px 10px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-size:11px; font-weight:700; color:#48BB78;">Automatic AI &amp; Manual BG Remover</div>
+                    <div style="font-size:9px; color:var(--tx2);">Smooth anti-aliased edge cutout</div>
+                </div>
+                <button class="btn-action-primary" style="width:auto; padding:6px 12px; font-size:11px; background:#238636; color:#fff; border:none;" onclick="if(typeof aiSmartBG==='function') aiSmartBG();">✨ One-Click Cutout</button>
+            </div>
+            <div style="background:var(--bd); border:1px solid var(--bd2); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
+                <div style="font-size:11px; font-weight:700; color:var(--tx1); display:flex; justify-content:space-between; align-items:center;">
+                    <span>🎨 Manual Color-Key Cutter (Chroma Key)</span>
+                    <button class="btn-action-primary" style="width:auto; padding:4px 10px; font-size:10px; background:var(--ac); color:#fff; border:none;" onclick="if(typeof executeManualColorKeyCutout === 'function') executeManualColorKeyCutout()">✂️ Cut Target Color</button>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <label style="font-size:10px;">Target:</label><input type="color" id="manBgKeyColor" value="#00FF00" style="width:32px; height:24px; border:none; background:transparent; cursor:pointer;">
+                    <button class="editor-back-btn" style="height:24px; font-size:10px; padding:0 8px;" onclick="if(typeof toggleEyedropper==='function') toggleEyedropper()">👁️ Pick from image</button>
+                </div>
+                <div style="display:flex; gap:6px;">
+                    <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:9px; color:var(--tx2);">Tolerance: <span id="val-mk-tol">40%</span></label>
+                        <input type="range" id="manBgKeyTol" min="5" max="100" value="40" oninput="document.getElementById('val-mk-tol').innerText=this.value+'%'">
+                    </div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:9px; color:var(--tx2);">Smooth Edge: <span id="val-mk-sm">15px</span></label>
+                        <input type="range" id="manBgKeySmooth" min="0" max="30" value="15" oninput="document.getElementById('val-mk-sm').innerText=this.value+'px'">
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button class="editor-back-btn" style="flex:1; height:30px; font-size:11px; background:var(--ac); color:#fff; font-weight:700;" onclick="if(typeof setMode==='function') setMode('eraser', this)">🧹 Brush Erase</button>
+                <button class="editor-back-btn" style="flex:1; height:30px; font-size:11px; background:#A371F7; color:#fff; font-weight:700;" onclick="if(typeof setMode==='function') setMode('mask', this)">🟣 Brush Restore</button>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "scale_rotate") {
+        var curSc = 100, curRt = 0;
+        var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+        if (el && el.scale) curSc = Math.round(el.scale);
+        if (el && el.rotate) curRt = Math.round(el.rotate);
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Scale Amount</label><span id="val-sr-sc">${curSc}%</span></div>
+                <input type="range" min="10" max="300" value="${curSc}" oninput="if(typeof setProp==='function') setProp('scale', this.value); var el=document.getElementById('val-sr-sc'); if(el) el.innerText=this.value+'%';">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Rotation Angle</label><span id="val-sr-rt">${curRt}°</span></div>
+                <input type="range" min="0" max="360" value="${curRt}" oninput="if(typeof setProp==='function') setProp('rotate', this.value); var el=document.getElementById('val-sr-rt'); if(el) el.innerText=this.value+'°';">
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "move_position") {
+        var curSc = 100, curRt = 0;
+        var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+        if (el && el.scale) curSc = Math.round(el.scale);
+        if (el && el.rotate) curRt = Math.round(el.rotate);
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Scale Amount</label><span id="val-mp-sc">${curSc}%</span></div>
+                <input type="range" min="10" max="300" value="${curSc}" oninput="if(typeof setProp==='function') setProp('scale', this.value); var el=document.getElementById('val-mp-sc'); if(el) el.innerText=this.value+'%';">
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Rotation Angle</label><span id="val-mp-rt">${curRt}°</span></div>
+                <input type="range" min="0" max="360" value="${curRt}" oninput="if(typeof setProp==='function') setProp('rotate', this.value); var el=document.getElementById('val-mp-rt'); if(el) el.innerText=this.value+'°';">
+            </div>
+            <div style="background:var(--bd); border:1px solid var(--bd2); border-radius:8px; padding:6px 10px;">
+                <div style="font-size:11px; font-weight:700; color:var(--tx1); margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>📍 Exact Position Nudge (X: ${Math.round(el ? el.x : 0)}, Y: ${Math.round(el ? el.y : 0)})</span>
+                    <span style="font-size:9px; color:var(--ac);">Tap arrows to move</span>
+                </div>
+                <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
+                    <button class="editor-back-btn" style="flex:1; width:auto; height:32px; font-size:13px;" onclick="nudgeSelectedPos(-6, 0)" title="Move Left">⬅️ Left</button>
+                    <button class="editor-back-btn" style="flex:1; width:auto; height:32px; font-size:13px;" onclick="nudgeSelectedPos(0, -6)" title="Move Up">⬆️ Up</button>
+                    <button class="editor-back-btn" style="flex:1; width:auto; height:32px; font-size:13px;" onclick="nudgeSelectedPos(0, 6)" title="Move Down">⬇️ Down</button>
+                    <button class="editor-back-btn" style="flex:1; width:auto; height:32px; font-size:13px;" onclick="nudgeSelectedPos(6, 0)" title="Move Right">➡️ Right</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "color_style" || opt.id === "color" || opt.id === "colour") {
+        var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+        var curCol = el && el.color ? el.color : "#FFFFFF";
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        wrap.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px; background:var(--bd); padding:8px 10px; border-radius:8px; border:1px solid var(--bd2);">
+                <div id="mobTxtColorPreview" style="width:36px; height:36px; border-radius:8px; background:${curCol}; border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>
+                <input type="color" value="${curCol}" onchange="if(typeof setProp==='function') setProp('color', this.value); var el=document.getElementById('mobTxtColorPreview'); if(el) el.style.background=this.value;" style="width:36px; height:36px; border:none; background:transparent; cursor:pointer;" title="Pick Text Color">
+                <input type="text" class="text-input-field" value="${curCol}" oninput="if(typeof setProp==='function') setProp('color', this.value); var el=document.getElementById('mobTxtColorPreview'); if(el) el.style.background=this.value;" style="flex:1;">
+                <button class="editor-back-btn" style="width:auto; height:32px; padding:0 10px; background:var(--ac); color:#fff; font-weight:700;" onclick="if(typeof toggleEyedropper==='function') toggleEyedropper(); closeMobToolEditor();">👁️ Eyedropper</button>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Quick Color Swatches</label><span>Tap to apply</span></div>
+                <div style="display:flex; gap:8px; align-items:center; overflow-x:auto; padding:4px 0;">
+                    <div class="color-swatch" style="background:#FFFFFF; width:26px; height:26px;" onclick="if(typeof setProp==='function') setProp('color', '#FFFFFF'); document.getElementById('mobTxtColorPreview').style.background='#FFFFFF';"></div>
+                    <div class="color-swatch" style="background:#58A6FF; width:26px; height:26px;" onclick="if(typeof setProp==='function') setProp('color', '#58A6FF'); document.getElementById('mobTxtColorPreview').style.background='#58A6FF';"></div>
+                    <div class="color-swatch" style="background:#A371F7; width:26px; height:26px;" onclick="if(typeof setProp==='function') setProp('color', '#A371F7'); document.getElementById('mobTxtColorPreview').style.background='#A371F7';"></div>
+                    <div class="color-swatch" style="background:#238636; width:26px; height:26px;" onclick="if(typeof setProp==='function') setProp('color', '#238636'); document.getElementById('mobTxtColorPreview').style.background='#238636';"></div>
+                    <div class="color-swatch" style="background:#FF3D71; width:26px; height:26px;" onclick="if(typeof setProp==='function') setProp('color', '#FF3D71'); document.getElementById('mobTxtColorPreview').style.background='#FF3D71';"></div>
+                    <div class="color-swatch" style="background:#D29922; width:26px; height:26px;" onclick="if(typeof setProp==='function') setProp('color', '#D29922'); document.getElementById('mobTxtColorPreview').style.background='#D29922';"></div>
+                    <div class="color-swatch" style="background:#00E5A8; width:26px; height:26px;" onclick="if(typeof setProp==='function') setProp('color', '#00E5A8'); document.getElementById('mobTxtColorPreview').style.background='#00E5A8';"></div>
+                    <div class="color-swatch" style="background:#000000; width:26px; height:26px;" onclick="if(typeof setProp==='function') setProp('color', '#000000'); document.getElementById('mobTxtColorPreview').style.background='#000000';"></div>
+                </div>
+            </div>
+        `;
+        container.appendChild(wrap);
+    } else if (opt.id === "scale") {
         var curSc = 100;
         if (hasSelection && typeof findEl === 'function' && selId && findEl(selId) && findEl(selId).scale) curSc = Math.round(findEl(selId).scale);
         var sld = document.createElement("div");
@@ -3863,6 +4543,24 @@ function renderMobEditorControls(opt, container) {
                         <option value="Courier New">Courier</option>
                         <option value="Times New Roman">Times</option>
                     </select>
+                </div>
+            </div>
+            <div class="sheet-sld">
+                <div class="sheet-sld-head"><label>Spacing &amp; Curve</label><span>0</span></div>
+                <div style="display:flex; gap:6px;">
+                    <input type="range" min="-5" max="30" value="0" oninput="if(typeof setProp==='function') setProp('charSpacing', this.value);" title="Spacing">
+                    <input type="range" min="-180" max="180" value="0" oninput="if(typeof setProp==='function') setProp('curve', this.value);" title="Curve">
+                </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px; background:var(--bd); padding:8px 10px; border-radius:8px; border:1px solid var(--bd2);">
+                <div style="font-size:11px; font-weight:700; color:var(--tx1); display:flex; justify-content:space-between; align-items:center;">
+                    <span>✍️ Handwriting &amp; Custom Fonts</span>
+                    <span style="font-size:9px; color:var(--ac);">Full System</span>
+                </div>
+                <div style="display:flex; gap:6px;">
+                    <button class="editor-back-btn" style="flex:1; width:auto; height:30px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="if(typeof openHandwritingFontModal==='function') openHandwritingFontModal();">✍️ Signature to Font</button>
+                    <button class="editor-back-btn" style="flex:1; width:auto; height:30px; background:var(--bd2); color:var(--tx1);" onclick="var inp = document.getElementById('customFontFileInp'); if (inp) inp.click(); else if(typeof triggerCustomFontUpload === 'function') triggerCustomFontUpload();">📁 Upload external font</button>
+                    <button class="editor-back-btn" style="width:34px; height:30px; background:var(--bd2); color:var(--tx1);" onclick="if(typeof downloadCurrentFontFile==='function') downloadCurrentFontFile();" title="Download / Export font file">💾</button>
                 </div>
             </div>
         `;
@@ -3921,15 +4619,19 @@ function renderMobEditorControls(opt, container) {
     } else if (opt.id === "mask_brush") {
         var wrap = document.createElement("div");
         wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
+        var curBSz = typeof bSz !== 'undefined' ? bSz : 25;
         wrap.innerHTML = `
+            <div id="activeMaskModeBadge" style="background:var(--bd); border:1px solid var(--bd2); border-radius:6px; padding:6px 10px; font-size:10px; font-weight:700; color:var(--tx1); text-align:center;">
+                ${mode === 'eraser' ? '🔵 ACTIVE TOOL: ERASER (Drag on image to erase · Brush: ' + curBSz + 'px)' : (mode === 'mask' ? '🟣 ACTIVE TOOL: MASK (Drag on image to restore · Brush: ' + curBSz + 'px)' : '🟢 ACTIVE TOOL: SELECT (Move & Scale Layers)')}
+            </div>
             <div style="display:flex; gap:6px;">
-                <button class="editor-back-btn" style="flex:1; width:auto; height:30px; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof setMode==='function') setMode('select', this);">Select</button>
-                <button class="editor-back-btn" style="flex:1; width:auto; height:30px; background:var(--ac); color:#fff; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof setMode==='function') setMode('eraser', this);">Erase</button>
-                <button class="editor-back-btn" style="flex:1; width:auto; height:30px; ${!hasSelection ? 'opacity:0.4; pointer-events:none;' : ''}" onclick="if(typeof setMode==='function') setMode('mask', this);">Mask</button>
+                <button class="editor-back-btn mask-mode-ctrl-btn ${mode === 'select' ? 'active' : ''}" data-mode="select" style="flex:1; width:auto; height:32px; font-weight:700;" onclick="if(typeof setMode==='function') setMode('select', this);">🟢 Select</button>
+                <button class="editor-back-btn mask-mode-ctrl-btn ${mode === 'eraser' ? 'active' : ''}" data-mode="eraser" style="flex:1; width:auto; height:32px; font-weight:700; ${mode === 'eraser' ? 'background:var(--ac); color:#fff;' : ''}" onclick="if(typeof setMode==='function') setMode('eraser', this);">🔵 Erase</button>
+                <button class="editor-back-btn mask-mode-ctrl-btn ${mode === 'mask' ? 'active' : ''}" data-mode="mask" style="flex:1; width:auto; height:32px; font-weight:700; ${mode === 'mask' ? 'background:#A371F7; color:#fff;' : ''}" onclick="if(typeof setMode==='function') setMode('mask', this);">🟣 Mask / Restore</button>
             </div>
             <div class="sheet-sld">
-                <div class="sheet-sld-head"><label>Brush Size</label><span>25px</span></div>
-                <input type="range" min="5" max="100" value="25" ${!hasSelection ? 'disabled style="opacity:0.4;"' : ''} oninput="bSz=parseInt(this.value)">
+                <div class="sheet-sld-head"><label>Brush Size Ring Preview</label><span id="val-bsz">${curBSz}px</span></div>
+                <input type="range" min="5" max="100" value="${curBSz}" oninput="bSz=parseInt(this.value); var el=document.getElementById('val-bsz'); if(el) el.innerText=this.value+'px'; if(typeof updateActiveMaskModeBadge==='function') updateActiveMaskModeBadge();">
             </div>
         `;
         container.appendChild(wrap);
@@ -4120,12 +4822,19 @@ function renderMobEditorControls(opt, container) {
         wrap.style.cssText = "display:flex; flex-direction:column; gap:6px;";
         wrap.innerHTML = `
             <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bd); padding:6px 10px; border-radius:6px; font-size:11px;">
-                <span>Canvas Alignment Grid</span>
-                <button class="editor-back-btn" style="width:auto; height:26px; padding:0 10px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="if(typeof toggleGrid==='function') toggleGrid();">Toggle Grid On/Off</button>
+                <span>Canvas Alignment Grid System</span>
+                <button class="editor-back-btn" style="width:auto; height:26px; padding:0 10px; background:var(--ac); color:#fff; font-weight:700; border:none;" onclick="if(typeof toggleGrid==='function') toggleGrid();">Turn Grid On/Off</button>
+            </div>
+            <div style="display:flex; gap:4px; overflow-x:auto; padding:2px 0; -webkit-overflow-scrolling:touch;">
+                <button class="editor-back-btn" style="height:26px; font-size:10px; padding:0 8px; flex-shrink:0;" onclick="if(typeof setGridSetting==='function') setGridSetting('layout', 'square');">📐 Square</button>
+                <button class="editor-back-btn" style="height:26px; font-size:10px; padding:0 8px; flex-shrink:0;" onclick="if(typeof setGridSetting==='function') setGridSetting('layout', 'thirds');">📏 Rule of Thirds</button>
+                <button class="editor-back-btn" style="height:26px; font-size:10px; padding:0 8px; flex-shrink:0;" onclick="if(typeof setGridSetting==='function') setGridSetting('layout', 'golden');">✨ Golden Ratio</button>
+                <button class="editor-back-btn" style="height:26px; font-size:10px; padding:0 8px; flex-shrink:0;" onclick="if(typeof setGridSetting==='function') setGridSetting('layout', 'center');">🎯 Center Cross</button>
+                <button class="editor-back-btn" style="height:26px; font-size:10px; padding:0 8px; flex-shrink:0;" onclick="if(typeof setGridSetting==='function') setGridSetting('layout', 'diagonal');">📊 Isometric</button>
             </div>
             <div class="sheet-sld">
-                <div class="sheet-sld-head"><label>Grid Spacing</label><span>20px</span></div>
-                <input type="range" min="10" max="100" value="20" oninput="if(typeof gridSz !== 'undefined') gridSz = parseInt(this.value); if(typeof R==='function') R();">
+                <div class="sheet-sld-head"><label>Grid Spacing</label><span id="val-gsz">${window.arjonaGridSettings?.spacing || 50}px</span></div>
+                <input type="range" min="10" max="150" value="${window.arjonaGridSettings?.spacing || 50}" oninput="if(typeof setGridSetting==='function') setGridSetting('spacing', parseInt(this.value)); var el=document.getElementById('val-gsz'); if(el) el.innerText=this.value+'px';">
             </div>
         `;
         container.appendChild(wrap);
@@ -4289,3 +4998,1448 @@ function addMobWatermark() {
     }
     closeMobToolEditor();
 }
+
+
+/* ============================================================================
+   TYPOGRAPHY: HANDWRITING / SIGNATURE TO FONT CONVERTER + EXTERNAL UPLOAD/DOWNLOAD
+   ============================================================================ */
+
+var hwIsDrawing = false, hwLastX = 0, hwLastY = 0;
+function openHandwritingFontModal() {
+    var modal = document.getElementById('handwritingFontModal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'handwritingFontModal';
+    modal.className = 'modal-overlay';
+    modal.style.cssText = 'display:flex; z-index:9999999;';
+    modal.innerHTML = `
+        <div class="modal-box" style="max-width:440px; width:95%; background:var(--bg); border:1px solid var(--bd2); border-radius:12px; overflow:hidden;">
+            <div class="modal-head" style="background:#10141C; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bd);">
+                <h2 style="font-size:14px; font-weight:800; color:var(--tx1); display:flex; align-items:center; gap:6px;">✍️ Convert Handwriting / Signature to Font</h2>
+                <button class="modal-x" onclick="document.getElementById('handwritingFontModal').remove()" style="background:transparent; border:none; color:var(--tx2); font-size:16px; cursor:pointer;">✕</button>
+            </div>
+            <div class="modal-body" style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+                <div style="font-size:11px; color:var(--tx2);">Draw your signature or alphabet character cleanly below. The system converts your stroke into a high-res custom scalable font glyph!</div>
+                
+                <div style="position:relative; width:100%; height:180px; background:#FFFFFF; border:2px dashed var(--ac); border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+                    <canvas id="hwFontCanvas" width="400" height="180" style="width:100%; height:100%; cursor:crosshair;"></canvas>
+                    <div style="position:absolute; bottom:36px; left:20px; right:20px; height:1px; border-bottom:1px dotted #A0AEC0; pointer-events:none;"></div>
+                </div>
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <label style="font-size:11px; font-weight:600; color:var(--tx1);">Pen Size:</label>
+                        <input type="range" id="hwPenSize" min="2" max="16" value="5" style="width:80px;">
+                        <input type="color" id="hwPenColor" value="#000000" style="width:28px; height:24px; border:none; background:transparent; cursor:pointer;" title="Pen Color">
+                    </div>
+                    <button class="editor-back-btn" style="width:auto; height:28px; padding:0 10px; font-size:11px;" onclick="clearHandwritingCanvas()">🧹 Clear Canvas</button>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <label style="font-size:11px; font-weight:700; color:var(--tx1);">Custom Font Name:</label>
+                    <input type="text" id="hwFontNameInp" class="text-input-field" placeholder="e.g. My Signature Font, Arjona Script..." value="MySignatureFont">
+                </div>
+
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <button class="btn-action-primary" style="flex:1; background:linear-gradient(135deg, #58A6FF, #A371F7);" onclick="convertAndApplyHandwritingFont()">⚡ Convert &amp; Apply to Canvas</button>
+                </div>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+
+    var hwc = document.getElementById('hwFontCanvas');
+    var hwctx = hwc.getContext('2d');
+    hwctx.lineCap = 'round'; hwctx.lineJoin = 'round';
+
+    function getHwPt(e) {
+        var rect = hwc.getBoundingClientRect();
+        var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: (clientX - rect.left) * (hwc.width / rect.width), y: (clientY - rect.top) * (hwc.height / rect.height) };
+    }
+
+    hwc.addEventListener('mousedown', function(e) { hwIsDrawing = true; var pt = getHwPt(e); hwLastX = pt.x; hwLastY = pt.y; });
+    hwc.addEventListener('mousemove', function(e) {
+        if (!hwIsDrawing) return;
+        var pt = getHwPt(e);
+        hwctx.lineWidth = parseInt(document.getElementById('hwPenSize').value || 5);
+        hwctx.strokeStyle = document.getElementById('hwPenColor').value || '#000000';
+        hwctx.beginPath(); hwctx.moveTo(hwLastX, hwLastY); hwctx.lineTo(pt.x, pt.y); hwctx.stroke();
+        hwLastX = pt.x; hwLastY = pt.y;
+    });
+    hwc.addEventListener('mouseup', function() { hwIsDrawing = false; });
+    hwc.addEventListener('mouseleave', function() { hwIsDrawing = false; });
+
+    hwc.addEventListener('touchstart', function(e) { e.preventDefault(); hwIsDrawing = true; var pt = getHwPt(e); hwLastX = pt.x; hwLastY = pt.y; }, { passive: false });
+    hwc.addEventListener('touchmove', function(e) {
+        e.preventDefault(); if (!hwIsDrawing) return;
+        var pt = getHwPt(e);
+        hwctx.lineWidth = parseInt(document.getElementById('hwPenSize').value || 5);
+        hwctx.strokeStyle = document.getElementById('hwPenColor').value || '#000000';
+        hwctx.beginPath(); hwctx.moveTo(hwLastX, hwLastY); hwctx.lineTo(pt.x, pt.y); hwctx.stroke();
+        hwLastX = pt.x; hwLastY = pt.y;
+    }, { passive: false });
+    hwc.addEventListener('touchend', function() { hwIsDrawing = false; });
+}
+
+function clearHandwritingCanvas() {
+    var hwc = document.getElementById('hwFontCanvas');
+    if (!hwc) return;
+    var hwctx = hwc.getContext('2d');
+    hwctx.clearRect(0, 0, hwc.width, hwc.height);
+}
+
+function convertAndApplyHandwritingFont() {
+    var hwc = document.getElementById('hwFontCanvas');
+    var nameInp = document.getElementById('hwFontNameInp');
+    if (!hwc || !nameInp) return;
+    var fontName = nameInp.value.trim() || 'MySignatureFont';
+    var glyphDataUrl = hwc.toDataURL('image/png');
+
+    window.arjonaCustomFonts = window.arjonaCustomFonts || {};
+    window.arjonaCustomFonts[fontName] = { name: fontName, glyphUrl: glyphDataUrl, created: Date.now() };
+    try { localStorage.setItem('arjona_custom_fonts', JSON.stringify(window.arjonaCustomFonts)); } catch(e) {}
+
+    ['fontSel', 'mobFontSel'].forEach(function(sid) {
+        var sel = document.getElementById(sid);
+        if (sel) {
+            var exists = false;
+            for (var i=0; i<sel.options.length; i++) { if (sel.options[i].value === fontName) { exists = true; break; } }
+            if (!exists) {
+                var op = document.createElement('option');
+                op.value = fontName; op.textContent = '✍️ ' + fontName;
+                sel.appendChild(op);
+            }
+            sel.value = fontName;
+        }
+    });
+
+    var el = (typeof findEl === 'function' && selId) ? findEl(selId) : null;
+    if (!el || el.type !== 'text') {
+        if (typeof addText === 'function') addText();
+        el = (typeof findEl === 'function' && selId) ? findEl(selId) : null;
+    }
+    if (el && el.type === 'text') {
+        el.font = fontName;
+        el.customGlyphUrl = glyphDataUrl;
+        el.text = fontName;
+        if (typeof sH === 'function') sH('Handwriting Font: ' + fontName);
+        if (typeof R === 'function') R();
+        if (typeof sUI === 'function') sUI();
+    }
+    var modal = document.getElementById('handwritingFontModal');
+    if (modal) modal.remove();
+    if (typeof showStatusBadge === 'function') showStatusBadge('✍️ Converted & applied font: ' + fontName);
+}
+
+function triggerCustomFontUpload() {
+    var inp = document.getElementById('customFontFileInp');
+    if (!inp) {
+        inp = document.createElement('input');
+        inp.type = 'file'; inp.id = 'customFontFileInp';
+        inp.accept = '.ttf,.otf,.woff,.woff2';
+        inp.style.display = 'none';
+        inp.onchange = function(e) { if(typeof uploadAndRegisterCustomFont === 'function') uploadAndRegisterCustomFont(e); else if(typeof upFont === 'function') upFont(e); };
+        document.body.appendChild(inp);
+    }
+    inp.click();
+}
+
+function downloadCurrentFontFile() {
+    var el = (typeof findEl === 'function' && selId) ? findEl(selId) : null;
+    var fontName = el ? (el.font || 'Arial') : 'CustomFont';
+    window.arjonaCustomFonts = window.arjonaCustomFonts || {};
+    var fontMeta = window.arjonaCustomFonts[fontName] || { name: fontName, exportedAt: new Date().toISOString() };
+
+    var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fontMeta, null, 2));
+    var downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", fontName + "_ArjonaFontPack.json");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    if (typeof showStatusBadge === 'function') showStatusBadge('💾 Exported font pack: ' + fontName);
+}
+
+function uploadAndRegisterCustomFont(ev) {
+    var f = ev.target.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function (e) {
+        var n = f.name.replace('/\.[^/.]+$/', '');
+        try {
+            var fc = new FontFace(n, 'url(' + e.target.result + ')');
+            fc.load().then(function (l) {
+                document.fonts.add(l);
+                ['fontSel', 'mobFontSel'].forEach(function(sid) {
+                    var sel = document.getElementById(sid);
+                    if (sel) {
+                        var op = document.createElement('option');
+                        op.value = n; op.textContent = '📁 ' + n;
+                        sel.appendChild(op); sel.value = n;
+                    }
+                });
+                var el = (typeof findEl === 'function' && selId) ? findEl(selId) : null;
+                if (!el || el.type !== 'text') { if (typeof addText === 'function') addText(); el = findEl(selId); }
+                if (el && el.type === 'text') {
+                    el.font = n;
+                    if (typeof sH === 'function') sH('Uploaded Font: ' + n);
+                    if (typeof R === 'function') R();
+                    if (typeof sUI === 'function') sUI();
+                }
+                if (typeof showStatusBadge === 'function') showStatusBadge('📁 Uploaded & applied font: ' + n);
+            }).catch(function () {
+                alert('Could not parse font file.');
+            });
+        } catch (err) { }
+    };
+    r.readAsDataURL(f); ev.target.value = '';
+}
+
+/* ============================================================================
+   CREATIVE STICKERS: CUSTOM ASSETS LIBRARY & DESIGN TEMPLATES ENGINE
+   ============================================================================ */
+
+function saveSelectedItemAsCustomAsset() {
+    var el = (typeof findEl === 'function' && selId) ? findEl(selId) : null;
+    if (!el && typeof els !== 'undefined' && els.length > 0) el = els[els.length - 1];
+    if (!el) {
+        alert('Please select an item on the canvas first to save as a custom asset!');
+        return;
+    }
+    var assetName = prompt('Enter a name for your custom asset:', el.type === 'text' ? (el.text || 'Custom Text') : 'Custom Image / Sticker');
+    if (!assetName) return;
+
+    var assetSrc = '';
+    if (el.type === 'image' && el.content) {
+        assetSrc = el.content.src || serializeImg(el.content);
+    } else {
+        var oc = document.createElement('canvas');
+        oc.width = 200; oc.height = 200;
+        var octx = oc.getContext('2d');
+        var fs = el.fontSize || 60;
+        octx.font = 'bold ' + fs + 'px "' + (el.font || 'Arial') + '"';
+        octx.fillStyle = el.color || '#7F3DFF';
+        octx.textAlign = 'center'; octx.textBaseline = 'middle';
+        octx.fillText(el.text || 'T', 100, 100);
+        assetSrc = oc.toDataURL();
+    }
+
+    window.arjonaCustomAssets = window.arjonaCustomAssets || [];
+    window.arjonaCustomAssets.push({
+        id: 'ast_' + Date.now(),
+        name: assetName,
+        src: assetSrc,
+        type: el.type,
+        text: el.text || '',
+        color: el.color || '#ffffff',
+        font: el.font || 'Arial'
+    });
+    try { localStorage.setItem('arjona_custom_assets', JSON.stringify(window.arjonaCustomAssets)); } catch(e) {}
+    openStickers('assets');
+    if (typeof showStatusBadge === 'function') showStatusBadge('🎒 Saved "' + assetName + '" to Custom Assets!');
+}
+
+function triggerCustomAssetUpload() {
+    var inp = document.getElementById('customAssetUploadInp');
+    if (!inp) {
+        inp = document.createElement('input');
+        inp.type = 'file'; inp.id = 'customAssetUploadInp';
+        inp.accept = 'image/*';
+        inp.style.display = 'none';
+        inp.onchange = uploadCustomAssetFile;
+        document.body.appendChild(inp);
+    }
+    inp.click();
+}
+
+function uploadCustomAssetFile(ev) {
+    var f = ev.target.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function(e) {
+        var assetName = f.name.replace('/\.[^/.]+$/', '');
+        window.arjonaCustomAssets = window.arjonaCustomAssets || [];
+        window.arjonaCustomAssets.push({
+            id: 'ast_' + Date.now(),
+            name: assetName,
+            src: e.target.result,
+            type: 'image'
+        });
+        try { localStorage.setItem('arjona_custom_assets', JSON.stringify(window.arjonaCustomAssets)); } catch(err) {}
+        openStickers('assets');
+        if (typeof showStatusBadge === 'function') showStatusBadge('🎒 Uploaded asset: ' + assetName);
+    };
+    r.readAsDataURL(f); ev.target.value = '';
+}
+
+function applyCustomAssetToCanvas(idx) {
+    window.arjonaCustomAssets = window.arjonaCustomAssets || [];
+    var ast = window.arjonaCustomAssets[idx];
+    if (!ast) return;
+    if (ast.type === 'text') {
+        els.push({
+            id: 't' + Date.now(), type: 'text', text: ast.text || ast.name,
+            x: canvas.width / 2, y: canvas.height / 2,
+            scale: 100, rotate: 0, opacity: 100,
+            font: ast.font || 'Arial', color: ast.color || '#ffffff', fontSize: 60
+        });
+        selId = els[els.length - 1].id;
+        if (typeof sH === 'function') sH('Custom Asset Text');
+        if (typeof R === 'function') R();
+        if (typeof sUI === 'function') sUI();
+    } else {
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+            els.push({
+                id: 'i' + Date.now(), type: 'image', content: img,
+                x: canvas.width / 2 - img.width / 2, y: canvas.height / 2 - img.height / 2,
+                scale: 100, rotate: 0, opacity: 100
+            });
+            selId = els[els.length - 1].id;
+            if (typeof sH === 'function') sH('Custom Asset Image');
+            if (typeof R === 'function') R();
+            if (typeof sUI === 'function') sUI();
+            if (typeof showCornerHandles === 'function') showCornerHandles(els[els.length - 1]);
+        };
+        img.src = ast.src;
+    }
+    var m = document.getElementById('stickersAssetsModal');
+    if (m) m.remove();
+}
+
+function deleteCustomAsset(idx) {
+    if (!confirm('Delete this custom asset?')) return;
+    window.arjonaCustomAssets.splice(idx, 1);
+    try { localStorage.setItem('arjona_custom_assets', JSON.stringify(window.arjonaCustomAssets)); } catch(e) {}
+    openStickers('assets');
+}
+
+function saveCurrentCanvasAsTemplate() {
+    var tplName = prompt('Enter a name for your new Design Template:', 'My Custom Template');
+    if (!tplName) return;
+    var stateJson = serS();
+    var thumb = canvas.toDataURL('image/jpeg', 0.8);
+    window.arjonaCustomTemplates = window.arjonaCustomTemplates || [];
+    window.arjonaCustomTemplates.push({
+        id: 'tpl_' + Date.now(),
+        name: tplName,
+        state: stateJson,
+        thumb: thumb,
+        created: Date.now()
+    });
+    try { localStorage.setItem('arjona_custom_templates', JSON.stringify(window.arjonaCustomTemplates)); } catch(e) {}
+    openStickers('templates');
+    if (typeof showStatusBadge === 'function') showStatusBadge('📐 Saved template: ' + tplName);
+}
+
+function loadCustomTemplate(idx) {
+    window.arjonaCustomTemplates = window.arjonaCustomTemplates || [];
+    var tpl = window.arjonaCustomTemplates[idx];
+    if (!tpl) return;
+    if (!confirm('Load template "' + tpl.name + '"? This will replace current canvas content.')) return;
+    restS(tpl.state, function() {
+        if (typeof R === 'function') R();
+        if (typeof sUI === 'function') sUI();
+        if (typeof sH === 'function') sH('Load Template: ' + tpl.name);
+        var m = document.getElementById('stickersAssetsModal');
+        if (m) m.remove();
+        if (typeof showStatusBadge === 'function') showStatusBadge('🚀 Loaded template: ' + tpl.name);
+    });
+}
+
+function deleteCustomTemplate(idx) {
+    if (!confirm('Delete this design template?')) return;
+    window.arjonaCustomTemplates.splice(idx, 1);
+    try { localStorage.setItem('arjona_custom_templates', JSON.stringify(window.arjonaCustomTemplates)); } catch(e) {}
+    openStickers('templates');
+}
+
+
+/* ============================================================================
+   1. VISIBLE EYEDROPPER CURSOR + LIVE MAGNIFYING COLOR LOUPE ENGINE
+   ============================================================================ */
+
+function setupEyedropperLoupe() {
+    var loupe = document.getElementById('eyedropperLoupe');
+    if (!loupe) {
+        loupe = document.createElement('div');
+        loupe.id = 'eyedropperLoupe';
+        loupe.style.cssText = 'position:fixed; width:84px; height:96px; pointer-events:none; z-index:9999999; display:none; flex-direction:column; align-items:center; filter:drop-shadow(0 6px 16px rgba(0,0,0,0.6));';
+        loupe.innerHTML = `
+            <div style="width:72px; height:72px; border-radius:50%; border:3px solid #fff; overflow:hidden; position:relative; background:#000;">
+                <canvas id="loupeCanvas" width="72" height="72" style="width:100%; height:100%; image-rendering:pixelated;"></canvas>
+                <div style="position:absolute; top:32px; left:32px; width:8px; height:8px; border:1px solid #FF3D71; pointer-events:none; box-sizing:border-box;"></div>
+            </div>
+            <div id="loupeHexLabel" style="background:#10141C; color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px; margin-top:-6px; border:1px solid rgba(255,255,255,0.3); white-space:nowrap;">#000000</div>
+        `;
+        document.body.appendChild(loupe);
+    }
+}
+
+function updateEyedropperLoupe(e) {
+    if (!eyedropperMode) {
+        var l = document.getElementById('eyedropperLoupe');
+        if (l) l.style.display = 'none';
+        return;
+    }
+    setupEyedropperLoupe();
+    var loupe = document.getElementById('eyedropperLoupe');
+    var lCanvas = document.getElementById('loupeCanvas');
+    var lLabel = document.getElementById('loupeHexLabel');
+    if (!loupe || !lCanvas || !lLabel) return;
+
+    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    loupe.style.display = 'flex';
+    loupe.style.left = (clientX + 16) + 'px';
+    loupe.style.top = (clientY - 80) + 'px';
+
+    var pt = typeof touchToCanvas === 'function' && e.touches ? touchToCanvas(e.touches[0]) : (typeof gCC === 'function' ? gCC(e) : { x: clientX, y: clientY });
+    try {
+        var lctx = lCanvas.getContext('2d');
+        lctx.imageSmoothingEnabled = false;
+        var sampleSize = 9;
+        var half = Math.floor(sampleSize / 2);
+        var imgData = ctx.getImageData(Math.max(0, pt.x - half), Math.max(0, pt.y - half), sampleSize, sampleSize);
+        var tempCanvas = document.createElement('canvas');
+        tempCanvas.width = sampleSize; tempCanvas.height = sampleSize;
+        tempCanvas.getContext('2d').putImageData(imgData, 0, 0);
+        lctx.clearRect(0, 0, 72, 72);
+        lctx.drawImage(tempCanvas, 0, 0, 72, 72);
+
+        var centerPixel = ctx.getImageData(pt.x, pt.y, 1, 1).data;
+        var hex = '#' + [centerPixel[0], centerPixel[1], centerPixel[2]].map(function (c) {
+            return ('0' + c.toString(16)).slice(-2);
+        }).join('').toUpperCase();
+        lLabel.innerText = hex;
+        lLabel.style.borderColor = hex;
+    } catch (err) {}
+}
+
+function toggleEyedropper() {
+    eyedropperMode = !eyedropperMode;
+    var loupe = document.getElementById('eyedropperLoupe');
+    if (eyedropperMode) {
+        document.body.classList.add('eyedropper-active');
+        var svgStr = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#58A6FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 4 6 6"/><path d="m4 20 6-6"/><path d="M19.1 8.9 15.1 4.9a2 2 0 0 0-2.8 0L9.5 7.7a2 2 0 0 0 0 2.8l4 4a2 2 0 0 0 2.8 0l2.8-2.8a2 2 0 0 0 0-2.8Z"/><path d="m4 20 2-2"/></svg>';
+        var cursorUrl = 'data:image/svg+xml;base64,' + btoa(svgStr);
+        canvas.style.cursor = 'url("' + cursorUrl + '") 0 26, crosshair';
+        canvas.style.setProperty('cursor', 'url("' + cursorUrl + '") 0 26, crosshair', 'important');
+        if (typeof showStatusBadge === 'function') showStatusBadge("👁️ Eyedropper Active: Click any pixel to pick color");
+    } else {
+        document.body.classList.remove('eyedropper-active');
+        canvas.style.cursor = mode !== 'select' ? 'crosshair' : 'default';
+        if (loupe) loupe.style.display = 'none';
+        if (typeof showStatusBadge === 'function') showStatusBadge("👁️ Eyedropper Off");
+    }
+}
+
+var old_mD_eyedrop = "if (eyedropperMode) {";
+var new_mD_eyedrop_engine = `
+if (eyedropperMode) {
+    try {
+        var pixel = ctx.getImageData(x, y, 1, 1).data;
+        var hex = '#' + [pixel[0], pixel[1], pixel[2]].map(function (c) {
+            return ('0' + c.toString(16)).slice(-2);
+        }).join('').toUpperCase();
+        eyedropperMode = false;
+        document.body.classList.remove('eyedropper-active');
+        canvas.style.cursor = mode !== 'select' ? 'crosshair' : 'default';
+        var loupe = document.getElementById('eyedropperLoupe');
+        if (loupe) loupe.style.display = 'none';
+        
+        // Apply hex directly
+        if (typeof setProp === 'function') setProp('color', hex);
+        var pickInp = document.getElementById('mobPickHex');
+        if (pickInp) pickInp.value = hex;
+        var pickPrev = document.getElementById('mobPickPreview');
+        if (pickPrev) pickPrev.style.background = hex;
+        var deskCol = document.getElementById('txtCol');
+        if (deskCol) deskCol.value = hex;
+        if (typeof showStatusBadge === 'function') showStatusBadge('🎨 Color Picked & Applied: ' + hex);
+    } catch (e) {}
+    return;
+}
+`;
+
+
+/* ============================================================================
+   2. FLAWLESS SMART BACKGROUND REMOVER & CUTTER ENGINE
+   ============================================================================ */
+
+function runFlawlessSmartBackgroundCutout(el, smoothingRatio) {
+    if (!el || el.type !== 'image' || !el.content || !el.content.complete) return;
+    if (typeof loader !== 'undefined' && loader) loader.style.display = 'flex';
+    var ldrMsg = document.getElementById('ldrMsg');
+    if (ldrMsg) ldrMsg.innerText = 'AI Smart Cutting BG...';
+
+    setTimeout(function () {
+        try {
+            var W = el.content.width, H = el.content.height;
+            var tc = document.createElement('canvas');
+            tc.width = W; tc.height = H;
+            var tctx = tc.getContext('2d');
+            tctx.drawImage(el.content, 0, 0);
+            var imgData = tctx.getImageData(0, 0, W, H);
+            var data = imgData.data;
+
+            // Analyze multi-edge perimeter color clusters
+            var edgeR = 0, edgeG = 0, edgeB = 0, count = 0;
+            for (var x = 0; x < W; x += Math.max(1, Math.floor(W / 40))) {
+                var iTop = (x) * 4;
+                var iBot = ((H - 1) * W + x) * 4;
+                edgeR += data[iTop] + data[iBot]; edgeG += data[iTop + 1] + data[iBot + 1]; edgeB += data[iTop + 2] + data[iBot + 2];
+                count += 2;
+            }
+            for (var y = 0; y < H; y += Math.max(1, Math.floor(H / 40))) {
+                var iLeft = (y * W) * 4;
+                var iRight = (y * W + (W - 1)) * 4;
+                edgeR += data[iLeft] + data[iRight]; edgeG += data[iLeft + 1] + data[iRight + 1]; edgeB += data[iLeft + 2] + data[iRight + 2];
+                count += 2;
+            }
+            edgeR /= count; edgeG /= count; edgeB /= count;
+
+            var tolerance = 48 + (smoothingRatio || 15);
+            var smoothRange = Math.max(10, tolerance * 0.4);
+
+            for (var py = 0; py < H; py++) {
+                for (var px = 0; px < W; px++) {
+                    var idx = (py * W + px) * 4;
+                    var dr = data[idx] - edgeR, dg = data[idx + 1] - edgeG, db = data[idx + 2] - edgeB;
+                    var dist = Math.sqrt(dr * dr + dg * dg + db * db);
+                    if (dist < tolerance) {
+                        data[idx + 3] = 0; // Cut out background
+                    } else if (dist < tolerance + smoothRange) {
+                        var alphaRatio = (dist - tolerance) / smoothRange;
+                        data[idx + 3] = Math.round(data[idx + 3] * alphaRatio); // Smooth anti-aliased edge
+                    }
+                }
+            }
+
+            tctx.putImageData(imgData, 0, 0);
+            var cutImg = new Image();
+            cutImg.crossOrigin = 'anonymous';
+            cutImg.onload = function () {
+                el.content = cutImg;
+                if (el.eraserMask) {
+                    var mctx = el.eraserMask.getContext('2d');
+                    mctx.fillStyle = '#fff';
+                    mctx.fillRect(0, 0, el.eraserMask.width, el.eraserMask.height);
+                }
+                if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+                if (typeof sH === 'function') sH('Smart BG Cutout');
+                if (typeof R === 'function') R();
+                if (typeof sUI === 'function') sUI();
+                if (typeof showStatusBadge === 'function') showStatusBadge("✨ Automatic Smart BG Cutout Complete!");
+            };
+            cutImg.src = tc.toDataURL('image/png');
+        } catch (err) {
+            if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+        }
+    }, 60);
+}
+
+function aiSmartBG() {
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    if (!el && typeof els !== 'undefined' && els.length > 0) {
+        for (var i = els.length - 1; i >= 0; i--) { if (els[i].type === 'image') { el = els[i]; break; } }
+    }
+    if (!el) { alert('Please select or add an image layer first.'); return; }
+    runFlawlessSmartBackgroundCutout(el, 15);
+}
+
+function removeBg() {
+    aiSmartBG();
+}
+
+
+/* ============================================================================
+   3. GRID OVERLAY SYNCED STRICTLY TO CANVAS + EXPANDED CUSTOM LAYOUTS
+   ============================================================================ */
+
+window.arjonaGridSettings = window.arjonaGridSettings || { layout: 'square', spacing: 50, opacity: 0.35, color: '#58A6FF' };
+
+function syncGridOverlayToCanvas() {
+    var overlay = document.getElementById('gridOverlay');
+    var mainCv = document.getElementById('mainCanvas');
+    if (!overlay || !mainCv || !gridVisible) return;
+
+    overlay.width = mainCv.width;
+    overlay.height = mainCv.height;
+
+    var rect = mainCv.getBoundingClientRect();
+    var frame = mainCv.parentElement ? mainCv.parentElement.getBoundingClientRect() : rect;
+    overlay.style.position = 'absolute';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+    overlay.style.left = (rect.left - frame.left) + 'px';
+    overlay.style.top = (rect.top - frame.top) + 'px';
+    overlay.style.borderRadius = mainCv.style.borderRadius || '4px';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.zIndex = '15';
+    overlay.style.display = 'block';
+}
+
+function drawGridOverlay() {
+    var overlay = document.getElementById('gridOverlay');
+    if (!overlay || !gridVisible) {
+        if (overlay) overlay.style.display = 'none';
+        return;
+    }
+    syncGridOverlayToCanvas();
+    var gctx = overlay.getContext('2d');
+    var W = overlay.width, H = overlay.height;
+    gctx.clearRect(0, 0, W, H);
+
+    var st = window.arjonaGridSettings || { layout: 'square', spacing: 50, opacity: 0.35, color: '#58A6FF' };
+    gctx.strokeStyle = st.color || '#58A6FF';
+    gctx.globalAlpha = st.opacity !== undefined ? st.opacity : 0.35;
+    gctx.lineWidth = 1.5;
+
+    if (st.layout === 'square' || !st.layout) {
+        var step = st.spacing || 50;
+        for (var x = step; x < W; x += step) {
+            gctx.beginPath(); gctx.moveTo(x, 0); gctx.lineTo(x, H); gctx.stroke();
+        }
+        for (var y = step; y < H; y += step) {
+            gctx.beginPath(); gctx.moveTo(0, y); gctx.lineTo(W, y); gctx.stroke();
+        }
+    } else if (st.layout === 'thirds') {
+        var w3 = W / 3, h3 = H / 3;
+        gctx.beginPath(); gctx.moveTo(w3, 0); gctx.lineTo(w3, H); gctx.stroke();
+        gctx.beginPath(); gctx.moveTo(w3 * 2, 0); gctx.lineTo(w3 * 2, H); gctx.stroke();
+        gctx.beginPath(); gctx.moveTo(0, h3); gctx.lineTo(W, h3); gctx.stroke();
+        gctx.beginPath(); gctx.moveTo(0, h3 * 2); gctx.lineTo(W, h3 * 2); gctx.stroke();
+    } else if (st.layout === 'golden') {
+        var gx1 = W * 0.382, gx2 = W * 0.618;
+        var gy1 = H * 0.382, gy2 = H * 0.618;
+        gctx.beginPath(); gctx.moveTo(gx1, 0); gctx.lineTo(gx1, H); gctx.stroke();
+        gctx.beginPath(); gctx.moveTo(gx2, 0); gctx.lineTo(gx2, H); gctx.stroke();
+        gctx.beginPath(); gctx.moveTo(0, gy1); gctx.lineTo(W, gy1); gctx.stroke();
+        gctx.beginPath(); gctx.moveTo(0, gy2); gctx.lineTo(W, gy2); gctx.stroke();
+    } else if (st.layout === 'center') {
+        gctx.beginPath(); gctx.moveTo(W / 2, 0); gctx.lineTo(W / 2, H); gctx.stroke();
+        gctx.beginPath(); gctx.moveTo(0, H / 2); gctx.lineTo(W, H / 2); gctx.stroke();
+        gctx.beginPath(); gctx.arc(W / 2, H / 2, Math.min(W, H) * 0.25, 0, Math.PI * 2); gctx.stroke();
+    } else if (st.layout === 'diagonal') {
+        var stepD = st.spacing || 60;
+        for (var d = -H; d < W + H; d += stepD) {
+            gctx.beginPath(); gctx.moveTo(d, 0); gctx.lineTo(d + H, H); gctx.stroke();
+            gctx.beginPath(); gctx.moveTo(d, H); gctx.lineTo(d + H, 0); gctx.stroke();
+        }
+    }
+    gctx.globalAlpha = 1;
+}
+
+function toggleGrid() {
+    gridVisible = !gridVisible;
+    var overlay = document.getElementById('gridOverlay');
+    if (gridVisible) {
+        if (overlay) overlay.style.display = 'block';
+        drawGridOverlay();
+        if (typeof showStatusBadge === 'function') showStatusBadge("📐 Grid ON: " + (window.arjonaGridSettings.layout || 'square').toUpperCase());
+    } else {
+        if (overlay) overlay.style.display = 'none';
+        if (typeof showStatusBadge === 'function') showStatusBadge("📐 Grid OFF");
+    }
+}
+
+function setGridSetting(key, val) {
+    window.arjonaGridSettings = window.arjonaGridSettings || { layout: 'square', spacing: 50, opacity: 0.35, color: '#58A6FF' };
+    window.arjonaGridSettings[key] = val;
+    if (gridVisible) drawGridOverlay();
+}
+
+
+/* ============================================================================
+   4. OVERHAULED MASK & ERASE ENGINE + CLEAR ACTIVE TOOL FEEDBACK & RING
+   ============================================================================ */
+
+function updateActiveMaskModeBadge() {
+    var badge = document.getElementById('activeMaskModeBadge');
+    var topBadge = document.getElementById('statusTxt');
+    var txt = "";
+    if (mode === 'select') txt = "🟢 ACTIVE TOOL: SELECT (Move & Scale Layers)";
+    else if (mode === 'eraser') txt = "🔵 ACTIVE TOOL: ERASER (Drag on image to erase · Brush: " + (typeof bSz !== 'undefined' ? bSz : 25) + "px)";
+    else if (mode === 'mask') txt = "🟣 ACTIVE TOOL: MASK (Drag on image to restore · Brush: " + (typeof bSz !== 'undefined' ? bSz : 25) + "px)";
+
+    if (badge) badge.innerHTML = txt;
+    if (topBadge && (mode === 'eraser' || mode === 'mask')) topBadge.innerText = txt;
+}
+
+function setMode(m, btn) {
+    mode = m;
+    canvas.style.cursor = m !== 'select' ? 'crosshair' : 'default';
+    var btns = document.querySelectorAll('.mode-btn, .sheet-mode-btn, .mask-mode-ctrl-btn');
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.remove('active');
+        if (btns[i].getAttribute('data-mode') === m) btns[i].classList.add('active');
+    }
+    if (btn && btn.classList) btn.classList.add('active');
+    updateActiveMaskModeBadge();
+    if (typeof showStatusBadge === 'function') showStatusBadge(mode === 'eraser' ? "🔵 Eraser Tool Active" : (mode === 'mask' ? "🟣 Mask Restore Tool Active" : "🟢 Select Tool Active"));
+}
+
+function setupBrushSizeRing() {
+    var ring = document.getElementById('brushSizePreviewRing');
+    if (!ring) {
+        ring = document.createElement('div');
+        ring.id = 'brushSizePreviewRing';
+        ring.style.cssText = 'position:fixed; pointer-events:none; z-index:999999; border:2px solid #58A6FF; border-radius:50%; display:none; transform:translate(-50%, -50%); box-shadow:0 0 4px rgba(0,0,0,0.8);';
+        document.body.appendChild(ring);
+    }
+}
+
+function updateBrushRingPosition(e) {
+    if (mode !== 'eraser' && mode !== 'mask') {
+        var r = document.getElementById('brushSizePreviewRing');
+        if (r) r.style.display = 'none';
+        return;
+    }
+    setupBrushSizeRing();
+    var ring = document.getElementById('brushSizePreviewRing');
+    if (!ring) return;
+
+    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    var scaleRatio = (el && el.scale ? el.scale : 100) / 100;
+    var ringSize = Math.max(8, (typeof bSz !== 'undefined' ? bSz : 25) * scaleRatio * 0.8);
+
+    ring.style.display = 'block';
+    ring.style.width = ringSize + 'px';
+    ring.style.height = ringSize + 'px';
+    ring.style.left = clientX + 'px';
+    ring.style.top = clientY + 'px';
+    ring.style.borderColor = mode === 'eraser' ? '#58A6FF' : '#A371F7';
+}
+
+function doErase(cx, cy) {
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    if (!el || el.type !== 'image') return;
+    if (!el.eraserMask) {
+        el.eraserMask = document.createElement('canvas');
+        el.eraserMask.width = el.content ? el.content.width : 400;
+        el.eraserMask.height = el.content ? el.content.height : 400;
+        var mctx = el.eraserMask.getContext('2d');
+        mctx.fillStyle = '#fff'; mctx.fillRect(0, 0, el.eraserMask.width, el.eraserMask.height);
+    }
+    var mc = el.eraserMask.getContext('2d');
+    var iw = el.content ? el.content.width * (el.scale / 100) : 400;
+    var ih = el.content ? el.content.height * (el.scale / 100) : 400;
+    
+    // Accurate coordinate transform accounting for rotation
+    var rot = -(el.rotate || 0) * Math.PI / 180;
+    var dx = cx - (el.x + iw / 2);
+    var dy = cy - (el.y + ih / 2);
+    var rx = (Math.cos(rot) * dx - Math.sin(rot) * dy) + iw / 2;
+    var ry = (Math.sin(rot) * dx + Math.cos(rot) * dy) + ih / 2;
+
+    var px = (rx / iw) * el.eraserMask.width;
+    var py = (ry / ih) * el.eraserMask.height;
+    var br = (typeof bSz !== 'undefined' ? bSz : 25) * (el.eraserMask.width / Math.max(iw, 1));
+
+    mc.save();
+    if (mode === 'eraser') {
+        mc.globalCompositeOperation = 'destination-out';
+        mc.fillStyle = 'rgba(0,0,0,1)';
+        mc.beginPath(); mc.arc(px, py, br, 0, Math.PI * 2); mc.fill();
+    } else if (mode === 'mask') {
+        mc.globalCompositeOperation = 'source-over';
+        mc.fillStyle = '#ffffff';
+        mc.beginPath(); mc.arc(px, py, br, 0, Math.PI * 2); mc.fill();
+    }
+    mc.restore();
+    if (typeof R === 'function') R();
+}
+
+function nudgeSelectedPos(dx, dy) {
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    if (!el) return;
+    el.x += dx;
+    el.y += dy;
+    if (typeof sH === 'function') sH('Position Nudge');
+    if (typeof R === 'function') R();
+    if (typeof showCornerHandles === 'function') showCornerHandles(el);
+    if (typeof sUI === 'function') sUI();
+}
+
+
+/* ============================================================================
+   ADVANCED ALIGNMENT & COMPREHENSIVE ABSOLUTE/RELATIVE POSITION ENGINE
+   ============================================================================ */
+
+function alignBetweenLayers(dir) {
+    var checked = document.querySelectorAll('.layer-merge-cb:checked');
+    var targetLayers = [];
+    if (checked.length >= 3) {
+        for (var i = 0; i < checked.length; i++) {
+            var l = findEl(checked[i].value);
+            if (l) targetLayers.push(l);
+        }
+    } else {
+        targetLayers = els.slice();
+    }
+    if (targetLayers.length < 2) return;
+
+    if (dir === 'h') {
+        targetLayers.sort(function(a, b) { return (a.x || 0) - (b.x || 0); });
+        if (targetLayers.length === 2) {
+            targetLayers[0].x = canvas.width * 0.1;
+            targetLayers[1].x = canvas.width * 0.9 - (targetLayers[1].content?.width || 200) * ((targetLayers[1].scale||100)/100);
+        } else {
+            var firstX = targetLayers[0].x || 0;
+            var lastEl = targetLayers[targetLayers.length - 1];
+            var lastX = lastEl.x || canvas.width - 100;
+            var totalGap = lastX - firstX;
+            var step = totalGap / (targetLayers.length - 1);
+            for (var k = 1; k < targetLayers.length - 1; k++) {
+                targetLayers[k].x = firstX + k * step;
+            }
+        }
+    } else if (dir === 'v') {
+        targetLayers.sort(function(a, b) { return (a.y || 0) - (b.y || 0); });
+        if (targetLayers.length === 2) {
+            targetLayers[0].y = canvas.height * 0.1;
+            targetLayers[1].y = canvas.height * 0.9 - (targetLayers[1].content?.height || 200) * ((targetLayers[1].scale||100)/100);
+        } else {
+            var firstY = targetLayers[0].y || 0;
+            var lastElV = targetLayers[targetLayers.length - 1];
+            var lastY = lastElV.y || canvas.height - 100;
+            var totalGapV = lastY - firstY;
+            var stepV = totalGapV / (targetLayers.length - 1);
+            for (var kv = 1; kv < targetLayers.length - 1; kv++) {
+                targetLayers[kv].y = firstY + kv * stepV;
+            }
+        }
+    }
+    if (typeof sH === 'function') sH('Distribute Between (' + dir.toUpperCase() + ')');
+    if (typeof R === 'function') R();
+    if (typeof sUI === 'function') sUI();
+    if (typeof showStatusBadge === 'function') showStatusBadge('↔️ Distributed space evenly between ' + targetLayers.length + ' layers!');
+}
+
+function switchPosAbsRelTab(mode) {
+    var absSec = document.getElementById('posAbsSection');
+    var relSec = document.getElementById('posRelSection');
+    var absBtn = document.getElementById('posTabAbsBtn');
+    var relBtn = document.getElementById('posTabRelBtn');
+    if (!absSec || !relSec || !absBtn || !relBtn) return;
+    if (mode === 'abs') {
+        absSec.style.display = 'flex'; relSec.style.display = 'none';
+        absBtn.style.background = 'var(--ac)'; absBtn.style.color = '#fff';
+        relBtn.style.background = 'transparent'; relBtn.style.color = 'var(--tx2)';
+    } else {
+        absSec.style.display = 'none'; relSec.style.display = 'flex';
+        relBtn.style.background = 'var(--ac)'; relBtn.style.color = '#fff';
+        absBtn.style.background = 'transparent'; absBtn.style.color = 'var(--tx2)';
+    }
+}
+
+function setAbsolutePos(coord, val) {
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    if (!el) return;
+    var num = parseInt(val) || 0;
+    if (coord === 'x') el.x = num;
+    else if (coord === 'y') el.y = num;
+    if (typeof R === 'function') R();
+    if (typeof showCornerHandles === 'function') showCornerHandles(el);
+}
+
+function jumpRelativePos(preset) {
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    if (!el) return;
+    var W = canvas.width, H = canvas.height;
+    var iw = el.content ? el.content.width * ((el.scale||100)/100) : (el.fontSize ? el.fontSize * 3 : 200);
+    var ih = el.content ? el.content.height * ((el.scale||100)/100) : (el.fontSize || 60);
+
+    if (preset === 'center') { el.x = (W - iw)/2; el.y = (H - ih)/2; }
+    else if (preset === 'nw') { el.x = W * 0.05; el.y = H * 0.05; }
+    else if (preset === 'ne') { el.x = W * 0.95 - iw; el.y = H * 0.05; }
+    else if (preset === 'sw') { el.x = W * 0.05; el.y = H * 0.95 - ih; }
+    else if (preset === 'se') { el.x = W * 0.95 - iw; el.y = H * 0.95 - ih; }
+    else if (preset === 'mid_y') { el.y = (H - ih)/2; }
+    
+    if (typeof sH === 'function') sH('Relative Jump');
+    if (typeof R === 'function') R();
+    if (typeof showCornerHandles === 'function') showCornerHandles(el);
+    if (typeof sUI === 'function') sUI();
+}
+
+
+/* ============================================================================
+   TEXT BACKGROUND CARDS / SHADOWS & MANUAL COLOR-KEY CUTOUT ENGINE
+   ============================================================================ */
+
+function toggleTextBoxBg(btn) {
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    if (!el) return;
+    el.hasBgBox = !el.hasBgBox;
+    if (el.hasBgBox && !el.bgBoxColor) { el.bgBoxColor = '#161B22'; el.bgBoxOpacity = 85; el.bgBoxRadius = 12; el.bgBoxPadding = 16; }
+    if (btn) {
+        btn.style.background = el.hasBgBox ? 'var(--ac)' : 'var(--bd2)';
+        btn.style.color = el.hasBgBox ? '#fff' : 'var(--tx1)';
+        btn.innerText = el.hasBgBox ? 'BOX ON' : 'BOX OFF';
+    }
+    if (typeof sH === 'function') sH('Toggle Text Box BG');
+    if (typeof R === 'function') R();
+}
+
+function setTextBoxProp(prop, val) {
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    if (!el) return;
+    el[prop] = val;
+    if (typeof R === 'function') R();
+}
+
+var old_render_text_draw = "ctx.fillStyle = el.color || '#7F3DFF'; ctx.fillText(ch, x, y);";
+var new_render_text_draw = `
+        if (el.hasBgBox) {
+            ctx.save();
+            var boxPad = el.bgBoxPadding || 16;
+            var boxRad = el.bgBoxRadius || 12;
+            ctx.globalAlpha = (el.bgBoxOpacity !== undefined ? el.bgBoxOpacity : 85) / 100 * ((el.opacity||100)/100);
+            ctx.fillStyle = el.bgBoxColor || '#161B22';
+            if (typeof ctx.roundRect === 'function') {
+                ctx.beginPath();
+                ctx.roundRect(x - boxPad, y - boxPad, tw + boxPad * 2, fs + boxPad * 2, boxRad);
+                ctx.fill();
+            } else {
+                ctx.fillRect(x - boxPad, y - boxPad, tw + boxPad * 2, fs + boxPad * 2);
+            }
+            ctx.restore();
+        }
+        if (el.shadowBlur || el.shadowOffsetX || el.shadowOffsetY) {
+            ctx.save();
+            ctx.shadowColor = el.shadowColor || '#000000';
+            ctx.shadowBlur = el.shadowBlur || 0;
+            ctx.shadowOffsetX = el.shadowOffsetX || 0;
+            ctx.shadowOffsetY = el.shadowOffsetY || 0;
+            ctx.fillStyle = el.color || '#7F3DFF'; ctx.fillText(ch, x, y);
+            ctx.restore();
+        } else {
+            ctx.fillStyle = el.color || '#7F3DFF'; ctx.fillText(ch, x, y);
+        }
+`;
+
+function executeManualColorKeyCutout() {
+    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+    if (!el || el.type !== 'image' || !el.content || !el.content.complete) return;
+    var targetCol = document.getElementById('manBgKeyColor')?.value || '#00FF00';
+    var tol = parseInt(document.getElementById('manBgKeyTol')?.value || 40);
+    var smooth = parseInt(document.getElementById('manBgKeySmooth')?.value || 15);
+
+    var rKey = parseInt(targetCol.substr(1,2), 16), gKey = parseInt(targetCol.substr(3,2), 16), bKey = parseInt(targetCol.substr(5,2), 16);
+    var W = el.content.width, H = el.content.height;
+    var tc = document.createElement('canvas');
+    tc.width = W; tc.height = H;
+    var tctx = tc.getContext('2d');
+    tctx.drawImage(el.content, 0, 0);
+    var imgData = tctx.getImageData(0, 0, W, H);
+    var data = imgData.data;
+
+    var distTol = tol * 2.5;
+    var smoothRange = smooth * 1.5;
+
+    for (var i = 0; i < data.length; i += 4) {
+        var dr = data[i] - rKey, dg = data[i + 1] - gKey, db = data[i + 2] - bKey;
+        var dist = Math.sqrt(dr * dr + dg * dg + db * db);
+        if (dist < distTol) {
+            data[i + 3] = 0;
+        } else if (dist < distTol + smoothRange) {
+            var alphaRatio = (dist - distTol) / smoothRange;
+            data[i + 3] = Math.round(data[i + 3] * alphaRatio);
+        }
+    }
+
+    tctx.putImageData(imgData, 0, 0);
+    var cutImg = new Image();
+    cutImg.crossOrigin = 'anonymous';
+    cutImg.onload = function () {
+        el.content = cutImg;
+        if (typeof sH === 'function') sH('Manual Chroma Cutout');
+        if (typeof R === 'function') R();
+        if (typeof sUI === 'function') sUI();
+        if (typeof showStatusBadge === 'function') showStatusBadge("✂️ Targeted Color Key Cutout Complete!");
+    };
+    cutImg.src = tc.toDataURL('image/png');
+}
+
+
+/* ============================================================================
+   ARJONA AI BOX: IDEAS DRAWER & GHIBLI / ART STYLE IMAGE TRANSFORMER
+   ============================================================================ */
+
+function toggleAiIdeasDrawer() {
+    var d = document.getElementById('aiIdeasDrawer');
+    if (!d) return;
+    d.style.display = d.style.display === 'none' ? 'flex' : 'none';
+}
+
+function triggerAiIdeaPrompt(promptTxt) {
+    var inp = document.getElementById('aiChatInput');
+    if (inp) inp.value = promptTxt;
+    var d = document.getElementById('aiIdeasDrawer');
+    if (d) d.style.display = 'none';
+    if (typeof sendAiChat === 'function') sendAiChat();
+}
+
+window.arjonaStagedAiImg = window.arjonaStagedAiImg || null;
+window.arjonaStagedAiImgSrc = window.arjonaStagedAiImgSrc || null;
+window.arjonaStagedAiImgTransformed = false;
+
+function uploadImageForAiArtStyle(ev) {
+    var f = ev.target.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function(e) {
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+            window.arjonaStagedAiImg = img;
+            window.arjonaStagedAiImgSrc = e.target.result;
+            window.arjonaStagedAiImgTransformed = false;
+            renderAiStagedImageCard();
+            if (typeof showStatusBadge === 'function') showStatusBadge("🖼️ Image loaded into Ask AI staging area. Provide a prompt or tap a style below!");
+        };
+        img.src = e.target.result;
+    };
+    r.readAsDataURL(f); ev.target.value = '';
+}
+
+function renderAiStagedImageCard() {
+    var chatBody = document.getElementById('aiChatBody');
+    if (!chatBody || !window.arjonaStagedAiImg) return;
+    var oldCard = document.getElementById('aiStagedImageCard');
+    if (oldCard) oldCard.remove();
+
+    var card = document.createElement('div');
+    card.id = 'aiStagedImageCard';
+    card.className = 'ai-msg ai-msg-bot';
+    card.style.cssText = 'border-left: 3px solid var(--ac); background:var(--sf2); border-radius:8px; padding:10px 12px; margin:6px 0; display:flex; flex-direction:column; gap:8px;';
+    card.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                <img id="aiStagedImgPreview" src="${window.arjonaStagedAiImg.src || window.arjonaStagedAiImgSrc}" style="width:48px; height:48px; border-radius:6px; object-fit:cover; border:1px solid var(--bd2); flex-shrink:0;">
+                <div style="min-width:0;">
+                    <div style="font-size:11px; font-weight:800; color:var(--tx1);">Staged in Ask AI (${window.arjonaStagedAiImgTransformed ? 'Transformed Style' : 'Original Upload'})</div>
+                    <div style="font-size:10px; color:var(--tx2); line-height:1.3;">Transform using prompt below or tap a style! Only the final processed image will be added to canvas.</div>
+                </div>
+            </div>
+            <button onclick="clearStagedAiImage()" style="background:transparent; border:none; color:var(--tx2); font-size:14px; cursor:pointer; padding:2px 6px;" title="Remove staged image">✕</button>
+        </div>
+        <div style="display:flex; gap:6px; justify-content:flex-end; border-top:1px solid var(--bd); padding-top:6px;">
+            <button class="editor-back-btn" style="width:auto; height:28px; padding:0 12px; font-size:11px; background:transparent; color:var(--tx1);" onclick="clearStagedAiImage()">Discard</button>
+            <button class="editor-back-btn" style="width:auto; height:28px; padding:0 14px; font-size:11px; background:linear-gradient(135deg, #58A6FF, #A371F7); color:#fff; font-weight:800; border:none;" onclick="placeStagedImageToCanvas()">➕ Place onto Canvas</button>
+        </div>
+    `;
+    chatBody.appendChild(card);
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function clearStagedAiImage() {
+    window.arjonaStagedAiImg = null;
+    window.arjonaStagedAiImgSrc = null;
+    window.arjonaStagedAiImgTransformed = false;
+    var card = document.getElementById('aiStagedImageCard');
+    if (card) card.remove();
+    if (typeof showStatusBadge === 'function') showStatusBadge("Staged image discarded.");
+}
+
+function placeStagedImageToCanvas() {
+    if (!window.arjonaStagedAiImg) return;
+    var img = window.arjonaStagedAiImg;
+    if (typeof els !== 'undefined' && typeof canvas !== 'undefined') {
+        els.push({
+            id: 'i' + Date.now(), type: 'image', content: img,
+            x: canvas.width / 2 - img.width / 2, y: canvas.height / 2 - img.height / 2,
+            scale: 100, rotate: 0, opacity: 100
+        });
+        selId = els[els.length - 1].id;
+        if (typeof selectBottomTab === 'function') selectBottomTab('image');
+        if (typeof sH === 'function') sH('Placed Staged Image');
+        if (typeof R === 'function') R();
+        if (typeof sUI === 'function') sUI();
+        if (typeof showCornerHandles === 'function') showCornerHandles(els[els.length - 1]);
+        if (typeof showStatusBadge === 'function') showStatusBadge("✨ Final processed image placed onto canvas!");
+    }
+    clearStagedAiImage();
+}
+
+function applyAiArtStyle(styleName) {
+    var targetImg = window.arjonaStagedAiImg;
+    var isStaged = true;
+    if (!targetImg) {
+        var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+        if (!el && typeof els !== 'undefined' && els.length > 0) {
+            for (var i = els.length - 1; i >= 0; i--) { if (els[i].type === 'image') { el = els[i]; break; } }
+        }
+        if (el && el.type === 'image' && el.content && el.content.complete) {
+            targetImg = el.content;
+            isStaged = false;
+        }
+    }
+
+    if (!targetImg || !targetImg.complete) {
+        alert('Please upload an image into Ask AI (`Upload Image` button) or select an image layer on canvas first to apply ' + styleName.toUpperCase() + ' style!');
+        return;
+    }
+
+    if (typeof loader !== 'undefined' && loader) loader.style.display = 'flex';
+    var ldrMsg = document.getElementById('ldrMsg');
+    if (ldrMsg) ldrMsg.innerText = 'AI Art: ' + styleName.toUpperCase() + '...';
+
+    setTimeout(function() {
+        try {
+            var W = targetImg.width || 600, H = targetImg.height || 400;
+            var tc = document.createElement('canvas');
+            tc.width = W; tc.height = H;
+            var tctx = tc.getContext('2d');
+            tctx.drawImage(targetImg, 0, 0, W, H);
+            var imgData = tctx.getImageData(0, 0, W, H);
+            var px = imgData.data;
+
+            if (styleName === 'ghibli') {
+                for (var j = 0; j < px.length; j += 4) {
+                    px[j] = Math.min(255, Math.round(px[j] * 1.15 + 10));
+                    px[j+1] = Math.min(255, Math.round(px[j+1] * 1.12 + 8));
+                    px[j+2] = Math.min(255, Math.round(px[j+2] * 0.98));
+                    px[j] = Math.round(px[j] / 32) * 32;
+                    px[j+1] = Math.round(px[j+1] / 32) * 32;
+                    px[j+2] = Math.round(px[j+2] / 32) * 32;
+                }
+            } else if (styleName === 'cyberpunk') {
+                for (var j = 0; j < px.length; j += 4) {
+                    px[j] = Math.min(255, Math.max(0, (px[j] - 128) * 1.4 + 128 + 35));
+                    px[j+1] = Math.min(255, Math.max(0, (px[j+1] - 128) * 1.1 + 128 - 15));
+                    px[j+2] = Math.min(255, Math.max(0, (px[j+2] - 128) * 1.5 + 128 + 50));
+                }
+            } else if (styleName === 'watercolor') {
+                for (var j = 0; j < px.length; j += 4) {
+                    px[j] = Math.min(255, Math.round(px[j] * 1.08));
+                    px[j+1] = Math.min(255, Math.round(px[j+1] * 1.08));
+                    px[j+2] = Math.min(255, Math.round(px[j+2] * 1.12));
+                    px[j] = Math.round(px[j] / 40) * 40;
+                    px[j+1] = Math.round(px[j+1] / 40) * 40;
+                    px[j+2] = Math.round(px[j+2] / 40) * 40;
+                }
+            } else if (styleName === 'oilpaint' || styleName === 'sketch' || styleName === 'comic') {
+                var stepQ = styleName === 'comic' ? 64 : 48;
+                for (var j = 0; j < px.length; j += 4) {
+                    px[j] = Math.min(255, Math.round(px[j] / stepQ) * stepQ);
+                    px[j+1] = Math.min(255, Math.round(px[j+1] / stepQ) * stepQ);
+                    px[j+2] = Math.min(255, Math.round(px[j+2] / stepQ) * stepQ);
+                }
+            }
+
+            tctx.putImageData(imgData, 0, 0);
+            var artImg = new Image();
+            artImg.crossOrigin = 'anonymous';
+            artImg.onload = function() {
+                if (isStaged) {
+                    window.arjonaStagedAiImg = artImg;
+                    window.arjonaStagedAiImgSrc = artImg.src;
+                    window.arjonaStagedAiImgTransformed = true;
+                    renderAiStagedImageCard();
+                    var chatBody = document.getElementById('aiChatBody');
+                    if (chatBody) {
+                        var msgEl = document.createElement('div');
+                        msgEl.className = 'ai-msg ai-msg-bot';
+                        msgEl.style.borderLeft = '3px solid var(--ac)';
+                        msgEl.innerHTML = `✨ Processed your uploaded image with <b>${styleName.toUpperCase()}</b> style! Check the staged preview card above. Click <b>[➕ Place onto Canvas]</b> when you are ready to add only this final processed image right onto your canvas.`;
+                        chatBody.appendChild(msgEl);
+                        chatBody.scrollTop = chatBody.scrollHeight;
+                    }
+                } else {
+                    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
+                    if (el) {
+                        el.content = artImg;
+                        if (typeof sH === 'function') sH('AI Art Style: ' + styleName);
+                        if (typeof R === 'function') R();
+                        if (typeof sUI === 'function') sUI();
+                    }
+                }
+                if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+                if (typeof showStatusBadge === 'function') showStatusBadge("🎨 Applied AI Art Style: " + styleName.toUpperCase());
+            };
+            artImg.src = tc.toDataURL('image/png');
+        } catch(err) {
+            if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+        }
+    }, 70);
+}
+
+/* ============================================================================
+   COMPREHENSIVE SAVING & EXPORTING ENGINE (`More -> Export`)
+   ============================================================================ */
+
+function openExport() {
+    var modal = document.getElementById('comprehensiveExportModal');
+    if (modal) modal.remove();
+
+    var curW = canvas ? canvas.width : 1280;
+    var curH = canvas ? canvas.height : 720;
+
+    modal = document.createElement('div');
+    modal.id = 'comprehensiveExportModal';
+    modal.className = 'modal-overlay';
+    modal.style.cssText = 'display:flex; z-index:9999999;';
+    modal.innerHTML = `
+        <div class="modal-box" style="max-width:500px; width:95%; background:var(--bg); border:1px solid var(--bd2); border-radius:14px; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,0.7);">
+            <div class="modal-head" style="background:#10141C; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bd);">
+                <h2 style="font-size:15px; font-weight:800; color:var(--tx1); display:flex; align-items:center; gap:8px;">🚀 Comprehensive Save &amp; Export Engine</h2>
+                <button class="modal-x" onclick="document.getElementById('comprehensiveExportModal').remove()" style="background:transparent; border:none; color:var(--tx2); font-size:16px; cursor:pointer;">✕</button>
+            </div>
+            <div class="modal-body" style="padding:16px; display:flex; flex-direction:column; gap:12px; max-height:80vh; overflow-y:auto;">
+                <div style="font-size:11px; font-weight:700; color:var(--tx1);">1. Choose Image Format:</div>
+                <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">
+                    <div class="option-card active" id="expFmtPng" onclick="selectExportFormatCard('png')" style="padding:8px;"><span>PNG<br><small style="font-weight:400;color:var(--tx3)">Transparent</small></span></div>
+                    <div class="option-card" id="expFmtJpg" onclick="selectExportFormatCard('jpeg')" style="padding:8px;"><span>JPG<br><small style="font-weight:400;color:var(--tx3)">Standard</small></span></div>
+                    <div class="option-card" id="expFmtWebp" onclick="selectExportFormatCard('webp')" style="padding:8px;"><span>WEBP<br><small style="font-weight:400;color:var(--tx3)">Optimized</small></span></div>
+                    <div class="option-card" id="expFmtHd" onclick="selectExportFormatCard('hd')" style="padding:8px;"><span>HD / 4K<br><small style="font-weight:400;color:var(--tx3)">Ultra-Res</small></span></div>
+                </div>
+
+                <div class="sheet-sld">
+                    <div class="sheet-sld-head"><label>Export Quality &amp; Compression</label><span id="val-exp-qual">95%</span></div>
+                    <input type="range" id="expQualSld" min="10" max="100" value="95" oninput="document.getElementById('val-exp-qual').innerText=this.value+'%'">
+                </div>
+
+                <div style="font-size:11px; font-weight:700; color:var(--tx1); margin-top:4px;">2. Adjust Output Dimensions &amp; Size upon Export:</div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:10px; color:var(--tx2);">Width (px):</label>
+                        <input type="number" id="expWidthInp" class="text-input-field" value="${curW}" oninput="syncExportDimensions('w', this.value)">
+                    </div>
+                    <button id="expLockRatioBtn" onclick="toggleExportLockRatio()" style="margin-top:14px; background:var(--bd); border:1px solid var(--bd2); border-radius:6px; padding:6px 10px; font-size:14px; cursor:pointer;" title="Lock Aspect Ratio">🔒</button>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:2px;">
+                        <label style="font-size:10px; color:var(--tx2);">Height (px):</label>
+                        <input type="number" id="expHeightInp" class="text-input-field" value="${curH}" oninput="syncExportDimensions('h', this.value)">
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:2px;">
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="applyExportSizePreset(${curW}, ${curH})">📱 Original (${curW}×${curH})</button>
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="applyExportSizePreset(1280, 720)">💎 HD (1280×720)</button>
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="applyExportSizePreset(1920, 1080)">🔥 Full HD (1920×1080)</button>
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="applyExportSizePreset(3840, 2160)">🚀 4K Ultra (3840×2160)</button>
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="applyExportSizePreset(1080, 1080)">📸 Insta Square (1:1)</button>
+                    <button class="editor-back-btn" style="height:28px; font-size:10px;" onclick="applyExportSizePreset(1080, 1920)">📱 Story / Reel (9:16)</button>
+                </div>
+
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                    <button class="btn-action-primary" style="flex:1; padding:12px; font-size:13px; background:linear-gradient(135deg, #58A6FF, #A371F7); box-shadow:0 6px 20px rgba(88,166,255,0.4);" onclick="executeCustomImageExport()">📥 Download &amp; Save Image Now</button>
+                </div>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+
+var activeExportFormat = 'png';
+var exportRatioLocked = true;
+function selectExportFormatCard(fmt) {
+    activeExportFormat = fmt;
+    ['expFmtPng', 'expFmtJpg', 'expFmtWebp', 'expFmtHd'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+    });
+    if (fmt === 'png') document.getElementById('expFmtPng')?.classList.add('active');
+    else if (fmt === 'jpeg') document.getElementById('expFmtJpg')?.classList.add('active');
+    else if (fmt === 'webp') document.getElementById('expFmtWebp')?.classList.add('active');
+    else if (fmt === 'hd') { document.getElementById('expFmtHd')?.classList.add('active'); applyExportSizePreset(3840, 2160); }
+}
+
+function toggleExportLockRatio() {
+    exportRatioLocked = !exportRatioLocked;
+    var btn = document.getElementById('expLockRatioBtn');
+    if (btn) btn.innerText = exportRatioLocked ? '🔒' : '🔓';
+}
+
+function syncExportDimensions(changed, val) {
+    if (!exportRatioLocked || !canvas) return;
+    var num = parseInt(val) || 1;
+    var origRatio = canvas.width / Math.max(1, canvas.height);
+    if (changed === 'w') {
+        var hInp = document.getElementById('expHeightInp');
+        if (hInp) hInp.value = Math.round(num / origRatio);
+    } else {
+        var wInp = document.getElementById('expWidthInp');
+        if (wInp) wInp.value = Math.round(num * origRatio);
+    }
+}
+
+function applyExportSizePreset(w, h) {
+    var wInp = document.getElementById('expWidthInp');
+    var hInp = document.getElementById('expHeightInp');
+    if (wInp) wInp.value = w;
+    if (hInp) hInp.value = h;
+}
+
+function executeCustomImageExport() {
+    var wInp = document.getElementById('expWidthInp');
+    var hInp = document.getElementById('expHeightInp');
+    var qualInp = document.getElementById('expQualSld');
+    var targetW = wInp ? parseInt(wInp.value) : canvas.width;
+    var targetH = hInp ? parseInt(hInp.value) : canvas.height;
+    var qual = qualInp ? (parseInt(qualInp.value) / 100) : 0.95;
+    var fmt = activeExportFormat === 'hd' ? 'png' : activeExportFormat;
+
+    var expCanvas = document.createElement('canvas');
+    expCanvas.width = targetW;
+    expCanvas.height = targetH;
+    var ectx = expCanvas.getContext('2d');
+
+    ectx.drawImage(canvas, 0, 0, targetW, targetH);
+
+    var mime = 'image/' + fmt;
+    var dataUrl = expCanvas.toDataURL(mime, qual);
+    var link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = 'ArjonaStudio_' + targetW + 'x' + targetH + '_' + Date.now() + '.' + (fmt === 'jpeg' ? 'jpg' : fmt);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    var modal = document.getElementById('comprehensiveExportModal');
+    if (modal) modal.remove();
+    if (typeof showStatusBadge === 'function') showStatusBadge("📥 Image Exported: " + targetW + "×" + targetH + " (" + fmt.toUpperCase() + ")");
+}
+
+
+
+
+
+/* ============================================================================
+   DYNAMIC CONTEXT-SENSITIVE TOOLBAR VISIBILITY ENGINE
+   Toolbars for text and images appear only after type has been added or an image dragged/uploaded
+   ============================================================================ */
+
+function syncDynamicToolbarVisibility() {
+    var rowBar = document.getElementById('toolRowBar');
+    if (!rowBar) return;
+    // Restore .tool-raw-bar (Row Bar) to visual layout permanently (`The .tool-raw-bar (Row Bar) disappeared while updating the responsive layouts. Please fix this bug and restore it to the visual layout.`)
+    rowBar.style.display = 'flex';
+}
+
+/* ============================================================================
+   INTELLIGENT BI-DIRECTIONAL TOP / BOTTOM AI CONNECTION ENGINE
+   Connects 'Describe your AI scene' prompt box with lower 'Arjona AI' box
+   ============================================================================ */
+
+window.arjonaGenerationHistory = window.arjonaGenerationHistory || [];
+window.arjonaActiveGeneratedImg = window.arjonaActiveGeneratedImg || null;
+
+var _orig_generateAI = typeof generateAI === 'function' ? generateAI : null;
+function generateAI() {
+    var pv = (document.getElementById('aiPrompt')?.value || document.getElementById('mobAiPrompt')?.value || '').trim();
+    if (!pv && _orig_generateAI) return _orig_generateAI();
+
+    var style = document.getElementById('aiStyle')?.value || document.getElementById('mobAiStyle')?.value || '';
+    var aiMode = document.getElementById('aiMode')?.value || 'bg';
+    var url = 'https://image.pollinations.ai/prompt/' +
+        encodeURIComponent(pv + (style ? ' ' + style : '')) +
+        '?width=' + (canvas?.width || 1280) + '&height=' + (canvas?.height || 720) +
+        '&nologo=true&seed=' + Math.floor(Math.random() * 99999);
+
+    if (typeof loader !== 'undefined' && loader) loader.style.display = 'flex';
+    var ldrMsg = document.getElementById('ldrMsg');
+    if (ldrMsg) ldrMsg.innerText = 'AI Scene Connecting...';
+
+    var nb = new Image();
+    nb.crossOrigin = 'anonymous';
+    var to = setTimeout(function () { if (typeof loader !== 'undefined' && loader) loader.style.display = 'none'; }, 45000);
+
+    nb.onload = function () {
+        clearTimeout(to);
+        if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+        
+        window.arjonaActiveGeneratedImg = nb;
+        window.arjonaGenerationHistory.push({ prompt: pv, style: style, img: nb, mode: aiMode, time: Date.now() });
+
+        if (aiMode === 'bg') {
+            aiBg = nb; bgCf = null;
+            if (typeof sH === 'function') sH('Top AI Background: ' + pv.substring(0, 15));
+            if (typeof R === 'function') R();
+        } else {
+            if (typeof addAILayer === 'function') addAILayer(nb);
+        }
+
+        var chatBody = document.getElementById('aiChatBody');
+        if (chatBody) {
+            var msgEl = document.createElement('div');
+            msgEl.className = 'ai-msg ai-msg-bot';
+            msgEl.style.borderLeft = '3px solid var(--ac)';
+            msgEl.innerHTML = `✨ <b>Top Scene Linked:</b> Generated "${pv}". This image is now synced to our lower assistant session. Ask me to restyle, cut background, or apply Ghibli/Cyberpunk filters directly on it!`;
+            chatBody.appendChild(msgEl);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+        if (typeof showStatusBadge === 'function') showStatusBadge('✨ Top & Bottom AI Synced: Scene Generated!');
+        if (typeof syncDynamicToolbarVisibility === 'function') syncDynamicToolbarVisibility();
+    };
+
+    nb.onerror = function () {
+        clearTimeout(to);
+        if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+        if (typeof showStatusBadge === 'function') showStatusBadge('⚠️ Could not generate image. Check connection.');
+    };
+    nb.src = url;
+}
+
+function generateAIMobile() {
+    var mobP = document.getElementById('mobAiPrompt');
+    var topP = document.getElementById('aiPrompt');
+    if (mobP && topP) topP.value = mobP.value;
+    generateAI();
+}
+
+var _orig_sendAiChat = typeof sendAiChat === 'function' ? sendAiChat : null;
+function sendAiChat() {
+    var inp = document.getElementById('aiChatInput');
+    if (!inp) return;
+    var txt = inp.value.trim();
+    if (!txt) return;
+
+    var low = txt.toLowerCase();
+    if (low.indexOf('generate') === 0 || low.indexOf('create') === 0 || low.indexOf('draw') === 0 || low.indexOf('make a') === 0) {
+        var cleanPrompt = txt.replace(/^(generate|create|draw|make a|make an)\s+/i, '').trim();
+        var topP = document.getElementById('aiPrompt');
+        var mobP = document.getElementById('mobAiPrompt');
+        if (topP) topP.value = cleanPrompt;
+        if (mobP) mobP.value = cleanPrompt;
+
+        var chatBody = document.getElementById('aiChatBody');
+        if (chatBody) {
+            var uMsg = document.createElement('div');
+            uMsg.className = 'ai-msg ai-msg-user';
+            uMsg.innerText = txt;
+            chatBody.appendChild(uMsg);
+        }
+        inp.value = '';
+        generateAI();
+        return;
+    } else if (low.indexOf('ghibli') >= 0 || low.indexOf('cyberpunk') >= 0 || low.indexOf('watercolor') >= 0 || low.indexOf('oil') >= 0 || low.indexOf('sketch') >= 0 || low.indexOf('comic') >= 0) {
+        var styleToApply = 'ghibli';
+        if (low.indexOf('cyberpunk') >= 0) styleToApply = 'cyberpunk';
+        else if (low.indexOf('watercolor') >= 0) styleToApply = 'watercolor';
+        else if (low.indexOf('oil') >= 0) styleToApply = 'oilpaint';
+        else if (low.indexOf('sketch') >= 0) styleToApply = 'sketch';
+        else if (low.indexOf('comic') >= 0) styleToApply = 'comic';
+
+        var chatBody2 = document.getElementById('aiChatBody');
+        if (chatBody2) {
+            var uMsg2 = document.createElement('div');
+            uMsg2.className = 'ai-msg ai-msg-user';
+            uMsg2.innerText = txt;
+            chatBody2.appendChild(uMsg2);
+        }
+        inp.value = '';
+        if (typeof applyAiArtStyle === 'function') applyAiArtStyle(styleToApply);
+        return;
+    }
+
+    if (_orig_sendAiChat) _orig_sendAiChat();
+}
+
