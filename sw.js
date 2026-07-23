@@ -7,15 +7,15 @@
 
 var CACHE = 'arjona-v23';
 var FILES = [
-    '/',
-    '/index.html',
-    '/style.css',
-    '/script.js',
-    '/animations.js',
-    '/physics.js',
-    '/api-client.js',
-    '/install.js',
-    '/manifest.json'
+    './',
+    './index.html',
+    './style.css',
+    './script.js',
+    './animations.js',
+    './physics.js',
+    './api-client.js',
+    './install.js',
+    './manifest.json'
 ];
 
 /* ===== INSTALL ===== */
@@ -64,7 +64,7 @@ self.addEventListener('fetch', function (e) {
                 }
                 return res;
             }).catch(function () {
-                return caches.match('/index.html');
+                return caches.match('./index.html');
             });
         })
     );

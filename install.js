@@ -8,7 +8,7 @@
 /* ===== APK DOWNLOAD FUNCTION ===== */
 function downloadAPK() {
     var link = document.createElement('a');
-    link.href = '/ArjonaAI.apk';
+    link.href = './ArjonaAI.apk';
     link.download = 'ArjonaAI.apk';
     document.body.appendChild(link);
     link.click();
@@ -365,7 +365,7 @@ const InstallManager = (function () {
 
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                navigator.serviceWorker.register('./sw.js', { scope: './' })
                     .then(reg => {
                         console.log('SW Registered!', reg.scope);
                         reg.addEventListener('updatefound', () => {

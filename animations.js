@@ -874,22 +874,28 @@ const MicroInteractions = (function () {
    ============================================ */
 
 const ScrollAnimations = (function () {
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const el = entry.target;
-                const anim = el.dataset.scrollAnim || 'fadeUp';
-                el.classList.add('anim-' + anim + '-done');
-                observer.unobserve(el);
-            }
-        });
-    }, { threshold: 0.15 });
+    const observer = (typeof IntersectionObserver !== 'undefined')
+        ? new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const el = entry.target;
+                    const anim = el.dataset.scrollAnim || 'fadeUp';
+                    el.classList.add('anim-' + anim + '-done');
+                    observer.unobserve(el);
+                }
+            });
+        }, { threshold: 0.15 })
+        : null;
 
     function observe(selector, animType = 'fadeUp') {
         document.querySelectorAll(selector).forEach(el => {
             el.dataset.scrollAnim = animType;
             el.classList.add('scroll-anim');
-            observer.observe(el);
+            if (observer) {
+                observer.observe(el);
+            } else {
+                el.classList.add('anim-' + animType + '-done');
+            }
         });
     }
 
