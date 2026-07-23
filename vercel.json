@@ -46,6 +46,10 @@
             "use": "@vercel/static"
         },
         {
+            "src": "ArjonaAI.apk",
+            "use": "@vercel/static"
+        },
+        {
             "src": ".well-known/assetlinks.json",
             "use": "@vercel/static"
         },
@@ -80,8 +84,25 @@
     ],
     "routes": [
         {
+            "src": "/ArjonaAI.apk",
+            "headers": {
+                "content-type": "application/vnd.android.package-archive",
+                "content-disposition": "attachment; filename=\"ArjonaAI.apk\"",
+                "cache-control": "no-cache"
+            },
+            "dest": "/ArjonaAI.apk"
+        },
+        {
             "src": "/api/chat",
             "dest": "/api/chat.js"
+        },
+        {
+            "src": "/api/generate",
+            "dest": "/api/server.py"
+        },
+        {
+            "src": "/api/health",
+            "dest": "/api/server.py"
         },
         {
             "src": "/api/(.*)",
@@ -91,7 +112,7 @@
             "handle": "filesystem"
         },
         {
-            "src": "/(.*)",
+            "src": "/(?!api/)(.*)",
             "dest": "/index.html"
         }
     ],
@@ -138,6 +159,23 @@
                 {
                     "key": "Content-Type",
                     "value": "application/json"
+                },
+                {
+                    "key": "Cache-Control",
+                    "value": "no-cache"
+                }
+            ]
+        },
+        {
+            "source": "/ArjonaAI.apk",
+            "headers": [
+                {
+                    "key": "Content-Type",
+                    "value": "application/vnd.android.package-archive"
+                },
+                {
+                    "key": "Content-Disposition",
+                    "value": "attachment; filename=\"ArjonaAI.apk\""
                 },
                 {
                     "key": "Cache-Control",

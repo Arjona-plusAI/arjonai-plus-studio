@@ -107,9 +107,12 @@ function installApp(platform) {
     closeDownload();
 }
 function downloadAPK() {
+    // Absolute root-relative path: immune to any <base href> tag rewriting
+    // and to whatever sub-path the page happens to be served from.
     var link = document.createElement('a');
-    link.href = './ArjonaAI.apk';
+    link.href = '/ArjonaAI.apk';
     link.download = 'ArjonaAI.apk';
+    link.rel = 'noopener';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
