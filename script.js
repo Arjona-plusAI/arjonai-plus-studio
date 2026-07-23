@@ -392,8 +392,8 @@ function editLayerById(id) {
                 if (inp) { inp.value = el.text || ''; inp.focus(); inp.select(); }
             }, 150);
         } else {
-            if (typeof selectBottomTab === 'function') selectBottomTab('move');
-            if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale', label: 'Scale', requiresSelection: false }, 'Move');
+            if (typeof selectBottomTab === 'function') selectBottomTab('image');
+            if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale_rotate', label: 'Scale & Rotate', requiresSelection: false }, 'Image');
         }
     } else {
         if (typeof closeLayers === 'function') closeLayers();
@@ -3853,8 +3853,8 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (hit && hit.type === 'image') {
                 selId = hit.id; if(typeof sUI === 'function') sUI(); if(typeof showCornerHandles === 'function') showCornerHandles(hit);
                 if (window.innerWidth <= 900) {
-                    if (typeof selectBottomTab === 'function') selectBottomTab('move');
-                    if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale', label: 'Scale', requiresSelection: false }, 'Move');
+                    if (typeof selectBottomTab === 'function') selectBottomTab('image');
+                    if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale_rotate', label: 'Scale & Rotate', requiresSelection: false }, 'Image');
                 } else {
                     var transTab = document.querySelector('[data-p="bpTrans"]');
                     if (transTab) bpTab(transTab);
@@ -3889,8 +3889,8 @@ document.addEventListener('DOMContentLoaded', function () {
         } else if (hit && hit.type === 'image') {
             selId = hit.id; if(typeof sUI === 'function') sUI(); if(typeof showCornerHandles === 'function') showCornerHandles(hit);
             if (window.innerWidth <= 900) {
-                if (typeof selectBottomTab === 'function') selectBottomTab('move');
-                if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale', label: 'Scale', requiresSelection: false }, 'Move');
+                if (typeof selectBottomTab === 'function') selectBottomTab('image');
+                if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale_rotate', label: 'Scale & Rotate', requiresSelection: false }, 'Image');
             } else {
                 var transTab = document.querySelector('[data-p="bpTrans"]');
                 if (transTab) bpTab(transTab);
@@ -3910,7 +3910,7 @@ if ('serviceWorker' in navigator) {
    Replaces old sliding sheets while preserving 100% of underlying app functions
    ============================================================================ */
 
-var currentMobTab = "move";
+var currentMobTab = "type";
 var currentMobSubCategory = null;
 var currentMobEditorOption = null;
 var currentMobCategoryTitle = "Settings";
@@ -4037,7 +4037,7 @@ var mobTabDefinitions = {
 };
 
 window.addEventListener("DOMContentLoaded", function() {
-    selectBottomTab("move");
+    selectBottomTab("type");
 });
 
 function selectBottomTab(tabId, btnElement, isAutoDynamic) {
@@ -6403,191 +6403,525 @@ function generateAIMobile() {
     generateAI();
 }
 
+
+/* ============================================================================
+   ARJONA AI BOX STABILITY PATCH
+   Fixes: toggle/open state, staged upload workflow, assistant command fallback,
+   style processing, mobile row-bar initialization, and safe DOM bindings.
+   ============================================================================ */
 var _orig_sendAiChat = typeof sendAiChat === 'function' ? sendAiChat : null;
+
+function appendAiChatMessage(text, isBot, extraClass) {
+    var body = document.getElementById('aiChatBody');
+    if (!body) return null;
+    var div = document.createElement('div');
+    div.className = 'ai-msg ' + (isBot ? 'ai-msg-bot' : 'ai-msg-user') + (extraClass ? (' ' + extraClass) : '');
+    div.innerText = String(text || '');
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+    return div;
+}
+
+function aiBoxStatus(text) {
+    if (typeof showStatusBadge === 'function') showStatusBadge(text);
+    else if (typeof updateLog === 'function') updateLog(text);
+}
+
+function getActiveAiEditableElement() {
+    var el = null;
+    try {
+        if (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) el = findEl(selId);
+        if (!el && typeof els !== 'undefined' && els && els.length) el = els[els.length - 1];
+    } catch (e) { el = null; }
+    return el;
+}
+
+function getActiveAiImageElement() {
+    var el = getActiveAiEditableElement();
+    if (el && el.type === 'image' && el.content) return el;
+    try {
+        if (typeof els !== 'undefined' && els) {
+            for (var i = els.length - 1; i >= 0; i--) {
+                if (els[i] && els[i].type === 'image' && els[i].content) return els[i];
+            }
+        }
+    } catch (e) {}
+    return null;
+}
+
+function openAiChatBox() {
+    var box = document.getElementById('aiChatBox');
+    if (!box) return;
+    aiChatOpen = true;
+    box.classList.remove('hidden');
+    box.setAttribute('aria-hidden', 'false');
+    var chatToggleBtn = document.getElementById('aiChatToggle');
+    if (chatToggleBtn) chatToggleBtn.style.display = 'none';
+    box.style.left = '';
+    box.style.top = '';
+    box.style.transform = '';
+    if (window.innerWidth <= 900) {
+        box.style.bottom = '148px';
+        box.style.right = '12px';
+        box.style.width = 'calc(100vw - 24px)';
+        box.style.maxHeight = 'calc(100dvh - 172px)';
+    } else {
+        box.style.bottom = '70px';
+        box.style.right = '14px';
+        box.style.width = '350px';
+        box.style.maxHeight = '520px';
+    }
+    setTimeout(function () {
+        var inp = document.getElementById('aiChatInput');
+        if (inp) inp.focus();
+    }, 60);
+}
+
+function closeAiChatBox() {
+    var box = document.getElementById('aiChatBox');
+    if (!box) return;
+    aiChatOpen = false;
+    box.classList.add('hidden');
+    box.setAttribute('aria-hidden', 'true');
+    var chatToggleBtn = document.getElementById('aiChatToggle');
+    if (chatToggleBtn) chatToggleBtn.style.display = 'flex';
+}
+
+function toggleAiChat(forceState) {
+    var box = document.getElementById('aiChatBox');
+    if (!box) return;
+    var shouldOpen = (typeof forceState === 'boolean') ? forceState : (box.classList.contains('hidden') || !aiChatOpen);
+    if (shouldOpen) openAiChatBox(); else closeAiChatBox();
+}
+
+function toggleAiIdeasDrawer(forceState) {
+    var d = document.getElementById('aiIdeasDrawer');
+    if (!d) return;
+    var visible = d.style.display !== 'none' && d.style.display !== '';
+    var shouldShow = (typeof forceState === 'boolean') ? forceState : !visible;
+    d.style.display = shouldShow ? 'flex' : 'none';
+}
+
+function triggerAiIdeaPrompt(promptTxt) {
+    openAiChatBox();
+    var inp = document.getElementById('aiChatInput');
+    if (inp) inp.value = promptTxt || '';
+    toggleAiIdeasDrawer(false);
+    if (typeof sendAiChat === 'function') sendAiChat();
+}
+
+window.arjonaStagedAiImg = window.arjonaStagedAiImg || null;
+window.arjonaStagedAiImgSrc = window.arjonaStagedAiImgSrc || null;
+window.arjonaStagedAiImgTransformed = !!window.arjonaStagedAiImgTransformed;
+
+function uploadImageForAiArtStyle(ev) {
+    try {
+        var input = ev && ev.target ? ev.target : document.getElementById('aiArtStyleUploadInp');
+        var f = input && input.files && input.files[0] ? input.files[0] : null;
+        if (!f) return;
+        if (!/^image\//i.test(f.type || '')) {
+            appendAiChatMessage('Please choose a valid image file.', true);
+            return;
+        }
+        openAiChatBox();
+        appendAiChatMessage('Image received. I am staging it inside Ask AI instead of placing it on the canvas.', true);
+        var r = new FileReader();
+        r.onload = function (e) {
+            var img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function () {
+                window.arjonaStagedAiImg = img;
+                window.arjonaStagedAiImgSrc = e.target.result;
+                window.arjonaStagedAiImgTransformed = false;
+                renderAiStagedImageCard();
+                aiBoxStatus('Image staged in Ask AI. Add a prompt or choose a style.');
+            };
+            img.onerror = function () {
+                appendAiChatMessage('I could not read that image. Try another file.', true);
+            };
+            img.src = e.target.result;
+        };
+        r.onerror = function () { appendAiChatMessage('Upload failed while reading the file.', true); };
+        r.readAsDataURL(f);
+        if (input) input.value = '';
+    } catch (err) {
+        console.warn('AI upload staging error:', err);
+        appendAiChatMessage('Upload could not be staged. Please try again.', true);
+    }
+}
+
+function renderAiStagedImageCard() {
+    var chatBody = document.getElementById('aiChatBody');
+    if (!chatBody || !window.arjonaStagedAiImg) return;
+    var oldCard = document.getElementById('aiStagedImageCard');
+    if (oldCard) oldCard.remove();
+    var src = window.arjonaStagedAiImgSrc || window.arjonaStagedAiImg.src || '';
+    var card = document.createElement('div');
+    card.id = 'aiStagedImageCard';
+    card.className = 'ai-staged-card ai-msg ai-msg-bot';
+    card.innerHTML = '' +
+        '<div class="ai-staged-main">' +
+            '<img class="ai-staged-thumb" alt="Staged upload preview">' +
+            '<div class="ai-staged-copy">' +
+                '<div class="ai-staged-title">Ask AI staging area</div>' +
+                '<div class="ai-staged-note">' + (window.arjonaStagedAiImgTransformed ? 'Processed image ready. Place it when final.' : 'Uploaded image is waiting for your prompt/style.') + '</div>' +
+            '</div>' +
+            '<button class="ai-staged-x" onclick="clearStagedAiImage()" title="Remove staged image">×</button>' +
+        '</div>' +
+        '<div class="ai-staged-actions">' +
+            '<button type="button" class="ai-staged-secondary" onclick="clearStagedAiImage()">Discard</button>' +
+            '<button type="button" class="ai-staged-primary" onclick="placeStagedImageToCanvas()">Place final on canvas</button>' +
+        '</div>';
+    chatBody.appendChild(card);
+    var im = card.querySelector('.ai-staged-thumb');
+    if (im) im.src = src;
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function clearStagedAiImage() {
+    window.arjonaStagedAiImg = null;
+    window.arjonaStagedAiImgSrc = null;
+    window.arjonaStagedAiImgTransformed = false;
+    var card = document.getElementById('aiStagedImageCard');
+    if (card) card.remove();
+    aiBoxStatus('Ask AI staged image cleared.');
+}
+
+function placeStagedImageToCanvas() {
+    if (!window.arjonaStagedAiImg) {
+        appendAiChatMessage('No staged image is ready yet. Upload an image first.', true);
+        return;
+    }
+    if (typeof els === 'undefined' || typeof canvas === 'undefined' || !canvas) {
+        appendAiChatMessage('Canvas is not ready yet. Please wait a moment and try again.', true);
+        return;
+    }
+    var img = window.arjonaStagedAiImg;
+    var fitScale = 100;
+    if (img.width && img.height && canvas.width && canvas.height) {
+        fitScale = Math.min(100, Math.floor(Math.min((canvas.width * 0.72) / img.width, (canvas.height * 0.72) / img.height) * 100));
+        if (!isFinite(fitScale) || fitScale <= 0) fitScale = 100;
+    }
+    var drawW = img.width * fitScale / 100;
+    var drawH = img.height * fitScale / 100;
+    var newEl = {
+        id: 'ai' + Date.now(),
+        type: 'image',
+        content: img,
+        x: Math.round((canvas.width - drawW) / 2),
+        y: Math.round((canvas.height - drawH) / 2),
+        scale: fitScale,
+        rotate: 0,
+        opacity: 100
+    };
+    els.push(newEl);
+    selId = newEl.id;
+    if (typeof selectBottomTab === 'function') selectBottomTab('image', null, true);
+    if (typeof sH === 'function') sH('Place Ask AI Image');
+    if (typeof R === 'function') R();
+    if (typeof sUI === 'function') sUI();
+    if (typeof showCornerHandles === 'function') showCornerHandles(newEl);
+    appendAiChatMessage('Final processed image placed on the canvas as a new image layer.', true);
+    clearStagedAiImage();
+}
+
+function applyAiArtStyle(styleName) {
+    styleName = (styleName || 'ghibli').toLowerCase();
+    var allowed = { ghibli:1, cyberpunk:1, watercolor:1, oilpaint:1, sketch:1, comic:1 };
+    if (!allowed[styleName]) styleName = 'ghibli';
+
+    var targetImg = window.arjonaStagedAiImg;
+    var targetEl = null;
+    var isStaged = !!targetImg;
+    if (!targetImg) {
+        targetEl = getActiveAiImageElement();
+        if (targetEl && targetEl.content) targetImg = targetEl.content;
+        isStaged = false;
+    }
+    if (!targetImg || (targetImg.complete === false)) {
+        appendAiChatMessage('Upload an image into Ask AI or select an image layer first, then choose a style.', true);
+        return;
+    }
+
+    appendAiChatMessage('Processing ' + styleName.toUpperCase() + ' style. The canvas will only receive the final image when you place it.', true);
+    if (typeof loader !== 'undefined' && loader) loader.style.display = 'flex';
+    var ldrMsg = document.getElementById('ldrMsg');
+    if (ldrMsg) ldrMsg.innerText = 'AI Art: ' + styleName.toUpperCase() + '...';
+
+    setTimeout(function () {
+        try {
+            var W = Math.max(1, targetImg.naturalWidth || targetImg.width || 600);
+            var H = Math.max(1, targetImg.naturalHeight || targetImg.height || 400);
+            var tc = document.createElement('canvas');
+            tc.width = W;
+            tc.height = H;
+            var tctx = tc.getContext('2d', { willReadFrequently: true });
+            tctx.drawImage(targetImg, 0, 0, W, H);
+            var imgData = tctx.getImageData(0, 0, W, H);
+            var px = imgData.data;
+            for (var j = 0; j < px.length; j += 4) {
+                var r = px[j], g = px[j + 1], b = px[j + 2];
+                if (styleName === 'ghibli') {
+                    r = Math.round(Math.min(255, r * 1.14 + 12) / 28) * 28;
+                    g = Math.round(Math.min(255, g * 1.12 + 10) / 28) * 28;
+                    b = Math.round(Math.min(255, b * 1.02 + 4) / 28) * 28;
+                } else if (styleName === 'cyberpunk') {
+                    r = Math.min(255, Math.max(0, (r - 128) * 1.35 + 165));
+                    g = Math.min(255, Math.max(0, (g - 128) * 1.05 + 105));
+                    b = Math.min(255, Math.max(0, (b - 128) * 1.5 + 185));
+                } else if (styleName === 'watercolor') {
+                    r = Math.round(Math.min(255, r * 1.08 + 8) / 36) * 36;
+                    g = Math.round(Math.min(255, g * 1.08 + 8) / 36) * 36;
+                    b = Math.round(Math.min(255, b * 1.12 + 10) / 36) * 36;
+                    px[j + 3] = Math.min(255, px[j + 3] * 0.96 + 10);
+                } else if (styleName === 'sketch') {
+                    var gray = (r * 0.299 + g * 0.587 + b * 0.114);
+                    r = g = b = Math.min(255, Math.max(0, gray * 1.18 + 18));
+                } else if (styleName === 'comic') {
+                    r = Math.round(r / 56) * 56;
+                    g = Math.round(g / 56) * 56;
+                    b = Math.round(b / 56) * 56;
+                } else {
+                    r = Math.round(Math.min(255, r * 1.08 + 6) / 44) * 44;
+                    g = Math.round(Math.min(255, g * 1.04 + 3) / 44) * 44;
+                    b = Math.round(Math.min(255, b * 0.96) / 44) * 44;
+                }
+                px[j] = Math.min(255, Math.max(0, r));
+                px[j + 1] = Math.min(255, Math.max(0, g));
+                px[j + 2] = Math.min(255, Math.max(0, b));
+            }
+            tctx.putImageData(imgData, 0, 0);
+            var artImg = new Image();
+            artImg.crossOrigin = 'anonymous';
+            artImg.onload = function () {
+                if (isStaged) {
+                    window.arjonaStagedAiImg = artImg;
+                    window.arjonaStagedAiImgSrc = artImg.src;
+                    window.arjonaStagedAiImgTransformed = true;
+                    renderAiStagedImageCard();
+                    appendAiChatMessage(styleName.toUpperCase() + ' style applied to the staged image. Review it, then tap Place final on canvas.', true);
+                } else if (targetEl) {
+                    targetEl.content = artImg;
+                    if (typeof sH === 'function') sH('AI Art Style: ' + styleName);
+                    if (typeof R === 'function') R();
+                    if (typeof sUI === 'function') sUI();
+                    appendAiChatMessage(styleName.toUpperCase() + ' style applied to the selected image layer.', true);
+                }
+                if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+                aiBoxStatus('AI art style applied: ' + styleName.toUpperCase());
+            };
+            artImg.onerror = function () {
+                if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+                appendAiChatMessage('The processed image could not be loaded. Please try again.', true);
+            };
+            artImg.src = tc.toDataURL('image/png');
+        } catch (err) {
+            if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+            console.warn('AI art style error:', err);
+            appendAiChatMessage('I could not process this image in-browser. If it came from an external URL, upload it directly into Ask AI and try again.', true);
+        }
+    }, 80);
+}
+
 function sendAiChat() {
     var inp = document.getElementById('aiChatInput');
     if (!inp) return;
-    var txt = inp.value.trim();
+    var txt = (inp.value || '').trim();
     if (!txt) return;
+    inp.value = '';
+    openAiChatBox();
+    appendAiChatMessage(txt, false);
+    if (typeof addAiMem === 'function') addAiMem('user', txt);
 
     var low = txt.toLowerCase();
-    var chatBody = document.getElementById('aiChatBody');
-    if (chatBody) {
-        var uMsg = document.createElement('div');
-        uMsg.className = 'ai-msg ai-msg-user';
-        uMsg.innerText = txt;
-        chatBody.appendChild(uMsg);
-        chatBody.scrollTop = chatBody.scrollHeight;
-    }
-    inp.value = '';
-
-    var el = (typeof findEl === 'function' && typeof selId !== 'undefined' && selId) ? findEl(selId) : null;
-    if (!el && typeof els !== 'undefined' && els.length > 0) el = els[els.length - 1];
-
+    var el = getActiveAiEditableElement();
     function replyBot(respTxt) {
-        if (!chatBody) return;
-        var bMsg = document.createElement('div');
-        bMsg.className = 'ai-msg ai-msg-bot';
-        bMsg.innerText = respTxt;
-        chatBody.appendChild(bMsg);
-        chatBody.scrollTop = chatBody.scrollHeight;
+        appendAiChatMessage(respTxt, true);
+        if (typeof addAiMem === 'function') addAiMem('bot', respTxt);
+    }
+    function redraw() {
+        if (typeof R === 'function') R();
+        if (typeof sUI === 'function') sUI();
+        if (el && typeof showCornerHandles === 'function') showCornerHandles(el);
     }
 
-    // 1. Generate commands
-    if (low.indexOf('generate') === 0 || low.indexOf('create') === 0 || low.indexOf('draw') === 0 || low.indexOf('make a') === 0 || low.indexOf('replace background') >= 0 || low.indexOf('sunset') >= 0 || low.indexOf('space background') >= 0 || low.indexOf('winter') >= 0) {
+    if (window.arjonaStagedAiImg && /(place|add|insert|canvas|final)/.test(low)) {
+        placeStagedImageToCanvas();
+        return;
+    }
+    if (/(discard|clear staged|remove staged|cancel upload)/.test(low)) {
+        clearStagedAiImage();
+        replyBot('Staged image cleared.');
+        return;
+    }
+
+    if (/\b(ghibli|cyberpunk|watercolor|water colour|oil|oilpaint|oil painting|sketch|pencil|comic|graphic novel|style transfer)\b/.test(low)) {
+        var styleToApply = 'ghibli';
+        if (low.indexOf('cyberpunk') >= 0) styleToApply = 'cyberpunk';
+        else if (low.indexOf('watercolor') >= 0 || low.indexOf('water colour') >= 0) styleToApply = 'watercolor';
+        else if (low.indexOf('oil') >= 0) styleToApply = 'oilpaint';
+        else if (low.indexOf('sketch') >= 0 || low.indexOf('pencil') >= 0) styleToApply = 'sketch';
+        else if (low.indexOf('comic') >= 0 || low.indexOf('graphic novel') >= 0) styleToApply = 'comic';
+        applyAiArtStyle(styleToApply);
+        return;
+    }
+
+    if (/^(generate|create|draw|make a|make an)\b/.test(low) || low.indexOf('replace background') >= 0 || low.indexOf('space background') >= 0 || low.indexOf('sunset') >= 0 || low.indexOf('winter') >= 0) {
         var cleanPrompt = txt.replace(/^(generate|create|draw|make a|make an)\s+/i, '').trim();
         var topP = document.getElementById('aiPrompt');
         var mobP = document.getElementById('mobAiPrompt');
         if (topP) topP.value = cleanPrompt;
         if (mobP) mobP.value = cleanPrompt;
-        if (typeof generateAI === 'function') generateAI();
-        replyBot('✨ Processing your command: "' + cleanPrompt + '"... Generating scene and syncing to our active session.');
+        if (typeof generateAI === 'function') {
+            generateAI();
+            replyBot('Generating: "' + cleanPrompt + '". The result will sync with the canvas/session.');
+        } else {
+            replyBot('Generation engine is not available in this build, but your prompt is ready: ' + cleanPrompt);
+        }
         return;
     }
 
-    // 2. Art style transformations
-    if (low.indexOf('ghibli') >= 0 || low.indexOf('cyberpunk') >= 0 || low.indexOf('watercolor') >= 0 || low.indexOf('oil') >= 0 || low.indexOf('sketch') >= 0 || low.indexOf('comic') >= 0) {
-        var styleToApply = 'ghibli';
-        if (low.indexOf('cyberpunk') >= 0) styleToApply = 'cyberpunk';
-        else if (low.indexOf('watercolor') >= 0) styleToApply = 'watercolor';
-        else if (low.indexOf('oil') >= 0) styleToApply = 'oilpaint';
-        else if (low.indexOf('sketch') >= 0) styleToApply = 'sketch';
-        else if (low.indexOf('comic') >= 0) styleToApply = 'comic';
-        if (typeof applyAiArtStyle === 'function') applyAiArtStyle(styleToApply);
-        return;
-    }
-
-    // 3. Bigger / Smaller
-    if (low.indexOf('bigger') >= 0 || low.indexOf('large') >= 0 || low.indexOf('increase') >= 0) {
+    if (/\b(bigger|large|increase|badhao|bada)\b/.test(low)) {
         if (el) {
             el.scale = Math.min(320, (el.scale || 100) + 25);
             if (el.type === 'text' && el.fontSize) el.fontSize = Math.min(300, el.fontSize + 15);
-            if (typeof R === 'function') R(); if (typeof sUI === 'function') sUI();
-            replyBot('🔍 Increased scale of active element to ' + el.scale + '%!');
-        } else {
-            replyBot('⚠️ Please select or add an element on the canvas first to make it bigger.');
-        }
+            redraw();
+            replyBot('Increased the active element size.');
+        } else replyBot('Select an element first, then I can make it bigger.');
         return;
     }
-    if (low.indexOf('smaller') >= 0 || low.indexOf('reduce') >= 0 || low.indexOf('decrease') >= 0) {
+    if (/\b(smaller|reduce|decrease|chota|ghata)\b/.test(low)) {
         if (el) {
             el.scale = Math.max(12, (el.scale || 100) - 25);
             if (el.type === 'text' && el.fontSize) el.fontSize = Math.max(12, el.fontSize - 15);
-            if (typeof R === 'function') R(); if (typeof sUI === 'function') sUI();
-            replyBot('🔍 Reduced scale of active element to ' + el.scale + '%!');
-        } else {
-            replyBot('⚠️ Please select an element first to make it smaller.');
-        }
+            redraw();
+            replyBot('Reduced the active element size.');
+        } else replyBot('Select an element first, then I can make it smaller.');
         return;
     }
-
-    // 4. Center / Align
-    if (low.indexOf('center') >= 0 || low.indexOf('align') >= 0 || low.indexOf('middle') >= 0 || low.indexOf('golden ratio') >= 0) {
-        if (el) {
-            el.x = (canvas ? canvas.width : 1280) / 2;
-            el.y = (canvas ? canvas.height : 720) / 2;
-            if (typeof R === 'function') R(); if (typeof showCornerHandles === 'function') showCornerHandles(el); if (typeof sUI === 'function') sUI();
-            replyBot('🎯 Centered selected layer perfectly on the canvas!');
-        } else {
-            replyBot('⚠️ Please select an item on canvas to center/align.');
-        }
+    if (/\b(center|centre|align|middle|golden ratio)\b/.test(low)) {
+        if (el && typeof canvas !== 'undefined' && canvas) {
+            var w = 0, h = 0;
+            if (el.type === 'image' && el.content) { w = (el.content.width || 0) * (el.scale || 100) / 100; h = (el.content.height || 0) * (el.scale || 100) / 100; }
+            el.x = Math.round((canvas.width - w) / 2);
+            el.y = Math.round((canvas.height - h) / 2);
+            redraw();
+            replyBot('Centered the selected layer on the canvas.');
+        } else replyBot('Select an item first to center or align it.');
         return;
     }
-
-    // 5. Remove BG / Smart BG / Cutout
-    if (low.indexOf('remove bg') >= 0 || low.indexOf('background cutout') >= 0 || low.indexOf('smart bg') >= 0 || low.indexOf('cutout') >= 0) {
-        if (typeof aiSmartBG === 'function') aiSmartBG();
-        replyBot('✨ Triggered automatic Smart Background Remover on the active image.');
+    if (/(remove bg|remove background|background cutout|smart bg|cutout)/.test(low)) {
+        if (typeof aiSmartBG === 'function') { aiSmartBG(); replyBot('Started Smart Background Remover for the active image.'); }
+        else replyBot('Background remover is not available right now.');
         return;
     }
-
-    // 6. Neon / Glow / Border
-    if (low.indexOf('neon') >= 0 || low.indexOf('glow') >= 0 || low.indexOf('border') >= 0) {
+    if (/(neon|glow|border)/.test(low)) {
         if (el) {
             if (el.type === 'text') { el.glow = 28; el.glowColor = '#00C6FF'; }
             else { el.stroke = 8; el.strokeColor = '#00C6FF'; }
-            if (typeof R === 'function') R(); if (typeof sUI === 'function') sUI();
-            replyBot('⚡ Added glowing neon border effect!');
-        } else {
-            replyBot('⚠️ Please select an item on canvas to apply neon effect.');
-        }
+            redraw();
+            replyBot('Applied a clean neon glow/border effect.');
+        } else replyBot('Select an element first to apply neon or glow.');
         return;
     }
-
-    // 7. 3D / Depth / Bevel / Emboss
-    if (low.indexOf('3d') >= 0 || low.indexOf('depth') >= 0 || low.indexOf('bevel') >= 0 || low.indexOf('emboss') >= 0 || low.indexOf('metallic') >= 0) {
+    if (/(3d|depth|bevel|emboss|metallic)/.test(low)) {
         if (el) {
             if (el.type === 'text') { el.threeDDepth = 18; el.threeDColor = '#30363D'; el.emboss = 5; }
             else { el.emboss = 8; }
-            if (typeof R === 'function') R(); if (typeof sUI === 'function') sUI();
-            replyBot('💎 Applied 3D metallic/embossed depth effect!');
-        } else {
-            replyBot('⚠️ Please select an item to apply 3D effect.');
-        }
+            redraw();
+            replyBot('Applied 3D/embossed depth styling.');
+        } else replyBot('Select an item first to apply 3D styling.');
         return;
     }
-
-    // 8. Enhance / 4K / Clarity
-    if (low.indexOf('enhance') >= 0 || low.indexOf('4k') >= 0 || low.indexOf('clarity') >= 0) {
-        if (typeof aiAutoEnhance === 'function') aiAutoEnhance();
-        replyBot('📸 Ran AI Image Clarity & 4K sharpness enhancement!');
+    if (/(enhance|4k|clarity|sharp)/.test(low)) {
+        if (typeof aiAutoEnhance === 'function') { aiAutoEnhance(); replyBot('Running image clarity enhancement.'); }
+        else replyBot('Enhancement tool is not available in this build.');
         return;
     }
-
-    // 9. Noir / Grayscale / Sepia / Vintage Film Grain
-    if (low.indexOf('noir') >= 0 || low.indexOf('monochrome') >= 0 || low.indexOf('grayscale') >= 0) {
+    if (/(noir|monochrome|grayscale|black and white)/.test(low)) {
         if (typeof grayscale === 'function') grayscale();
-        replyBot('🖤 Applied high-contrast dramatic monochrome noir filter!');
+        replyBot('Applied monochrome/noir styling.');
         return;
     }
-    if (low.indexOf('grain') >= 0 || low.indexOf('sepia') >= 0 || low.indexOf('vintage') >= 0) {
+    if (/(grain|sepia|vintage)/.test(low)) {
         if (typeof gradeP === 'function') gradeP('vintage');
-        replyBot('🎞️ Applied vintage analog film grain & warm sepia tone!');
+        replyBot('Applied a vintage warm film look.');
         return;
     }
-
-    // 10. Watermark / Handwriting / Templates
     if (low.indexOf('watermark') >= 0) {
         if (typeof openWatermark === 'function') openWatermark();
-        replyBot('🏷️ Added clean translucent watermark to bottom corner!');
+        replyBot('Opened watermark tools.');
         return;
     }
-    if (low.indexOf('handwriting') >= 0 || low.indexOf('signature') >= 0) {
+    if (/(handwriting|signature)/.test(low)) {
         if (typeof openHandwritingFontModal === 'function') openHandwritingFontModal();
-        replyBot('✍️ Launched Signature & Handwriting Font Converter!');
+        replyBot('Opened the handwriting/signature font converter.');
         return;
     }
-    if (low.indexOf('banner') >= 0 || low.indexOf('story') >= 0 || low.indexOf('poster') >= 0 || low.indexOf('template') >= 0) {
+    if (/(banner|story|poster|template)/.test(low)) {
         if (typeof openTemplates === 'function') openTemplates();
-        replyBot('💼 Launched Design Templates Library!');
+        replyBot('Opened the templates library.');
         return;
     }
 
-    // 11. Colors
-    var colorMap = {
-        'red': '#FF3D71', 'blue': '#58A6FF', 'green': '#238636', 'yellow': '#D29922',
-        'white': '#FFFFFF', 'black': '#000000', 'purple': '#A371F7', 'pink': '#FF69B4',
-        'orange': '#FF6F00', 'cyan': '#00C6FF', 'gold': '#FFD700'
-    };
+    var colorMap = { red:'#FF3D71', blue:'#58A6FF', green:'#238636', yellow:'#D29922', white:'#FFFFFF', black:'#000000', purple:'#A371F7', pink:'#FF69B4', orange:'#FF6F00', cyan:'#00C6FF', gold:'#FFD700' };
     for (var col in colorMap) {
-        if (low.indexOf(col) >= 0) {
+        if (Object.prototype.hasOwnProperty.call(colorMap, col) && low.indexOf(col) >= 0) {
             if (el) {
-                el.color = colorMap[col];
-                if (typeof R === 'function') R(); if (typeof sUI === 'function') sUI();
-                replyBot('🎨 Changed active element color to ' + col.toUpperCase() + ' (' + colorMap[col] + ')!');
-            } else {
-                replyBot('⚠️ Please select an item first to change its color to ' + col + '.');
-            }
+                if (el.type === 'text') el.color = colorMap[col];
+                else { el.tint = colorMap[col]; el.strokeColor = colorMap[col]; }
+                redraw();
+                replyBot('Changed the active element color to ' + col + '.');
+            } else replyBot('Select an item first to change its color.');
             return;
         }
     }
 
-    if (_orig_sendAiChat) {
-        try { _orig_sendAiChat(); } catch(e) {
-            replyBot('Hello! Main Arjona AI hoon. You can upload an image (`Upload Image` button below) to apply Ghibli/Cyberpunk styles, tap [Ideas] for instant prompts, or type commands right here!');
+    if (window.arjonaStagedAiImg) {
+        replyBot('Your image is staged in Ask AI. Try: "Ghibli style", "Cyberpunk", "Watercolor", "Sketch", or "Place final on canvas".');
+        return;
+    }
+
+    if (typeof askAI === 'function') {
+        try { askAI(txt, true); }
+        catch (e) { replyBot('I am ready. You can upload an image, choose a style, use Ideas, or type commands like bigger, center, remove background, neon, 3D, or generate a scene.'); }
+    } else if (_orig_sendAiChat) {
+        try {
+            inp.value = txt;
+            _orig_sendAiChat();
+        } catch (e2) {
+            replyBot('I am ready. Upload an image or type a canvas command to begin.');
         }
     } else {
-        replyBot('Hello! I am Arjona AI. You can upload an image (`Upload Image` button below) to apply Ghibli/Cyberpunk styles, tap [Ideas] near the close button for 18 instant prompts, or type design commands right here!');
+        replyBot('I am ready. Upload an image, tap Ideas, or type commands like Ghibli, bigger, center, remove background, neon, 3D, or generate a scene.');
     }
 }
 
+function initArjonaAiBoxRuntimeFixes() {
+    var box = document.getElementById('aiChatBox');
+    var toggle = document.getElementById('aiChatToggle');
+    var closeBtn = document.querySelector('#aiChatBox .ai-chat-close');
+    var input = document.getElementById('aiChatInput');
+    var upload = document.getElementById('aiArtStyleUploadInp');
+    if (box) {
+        box.classList.add('hidden');
+        box.setAttribute('aria-hidden', 'true');
+        aiChatOpen = false;
+    }
+    if (toggle) { toggle.onclick = function () { toggleAiChat(); }; toggle.style.display = 'flex'; }
+    if (closeBtn) closeBtn.onclick = function () { toggleAiChat(false); };
+    if (input) input.onkeydown = function (event) { if (event.key === 'Enter') { event.preventDefault(); sendAiChat(); } };
+    if (upload) upload.onchange = uploadImageForAiArtStyle;
+    if (typeof selectBottomTab === 'function') {
+        var current = (typeof currentMobTab !== 'undefined' && currentMobTab && mobTabDefinitions && mobTabDefinitions[currentMobTab]) ? currentMobTab : 'type';
+        try { selectBottomTab(current, null, true); } catch (e) { try { selectBottomTab('type', null, true); } catch (e2) {} }
+    }
+    if (typeof syncDynamicToolbarVisibility === 'function') syncDynamicToolbarVisibility();
+}
+
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initArjonaAiBoxRuntimeFixes);
+} else {
+    initArjonaAiBoxRuntimeFixes();
+}
+window.addEventListener('resize', function () { if (aiChatOpen) openAiChatBox(); });
