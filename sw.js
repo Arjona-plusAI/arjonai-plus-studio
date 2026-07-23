@@ -5,7 +5,7 @@
    Cleaned: duplicate listeners removed, artifacts removed
    ============================================ */
 
-var CACHE = 'arjona-v24';
+var CACHE = 'arjona-v25';
 var FILES = [
     './',
     './index.html',
@@ -51,6 +51,10 @@ self.addEventListener('activate', function (e) {
 /* ===== FETCH ===== */
 self.addEventListener('fetch', function (e) {
     if (e.request.method !== 'GET') return;
+
+    // Never intercept the APK download: let the browser fetch it directly
+    // instead of being served from cache or any fallback route.
+    if (e.request.url.indexOf('ArjonaAI.apk') !== -1) return;
 
     e.respondWith(
         caches.match(e.request).then(function (cached) {
