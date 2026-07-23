@@ -46,10 +46,6 @@
             "use": "@vercel/static"
         },
         {
-            "src": "ArjonaAI.apk",
-            "use": "@vercel/static"
-        },
-        {
             "src": ".well-known/assetlinks.json",
             "use": "@vercel/static"
         },
@@ -101,6 +97,24 @@
     ],
     "headers": [
         {
+            "source": "/",
+            "headers": [
+                {
+                    "key": "Content-Type",
+                    "value": "text/html; charset=utf-8"
+                }
+            ]
+        },
+        {
+            "source": "/index.html",
+            "headers": [
+                {
+                    "key": "Content-Type",
+                    "value": "text/html; charset=utf-8"
+                }
+            ]
+        },
+        {
             "source": "/manifest.json",
             "headers": [
                 {
@@ -124,23 +138,6 @@
                 {
                     "key": "Content-Type",
                     "value": "application/json"
-                },
-                {
-                    "key": "Cache-Control",
-                    "value": "no-cache"
-                }
-            ]
-        },
-        {
-            "source": "/ArjonaAI.apk",
-            "headers": [
-                {
-                    "key": "Content-Type",
-                    "value": "application/vnd.android.package-archive"
-                },
-                {
-                    "key": "Content-Disposition",
-                    "value": "attachment; filename=\"ArjonaAI.apk\""
                 },
                 {
                     "key": "Cache-Control",
