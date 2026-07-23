@@ -392,6 +392,14 @@ document.addEventListener('DOMContentLoaded', function () {
 (function attachArjonaBackendAdapter() {
     if (!window.ApiClient) return;
 
+    function isStaticPagesHost() {
+        return /(^|\.)github\.io$/i.test(location.hostname) || location.protocol === 'file:';
+    }
+
+    function staticBackendUnavailable() {
+        return Promise.reject(new Error('Backend API is not available on this static host.'));
+    }
+
     function parseJsonResponse(res) {
         return res.text().then(function (txt) {
             var data = {};
@@ -409,6 +417,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (typeof window.ApiClient.chat !== 'function') {
         window.ApiClient.chat = function (input, options) {
+            if (isStaticPagesHost()) return staticBackendUnavailable();
             options = options || {};
             var payload = {};
             if (typeof input === 'string') {
@@ -420,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (options.max_tokens) payload.max_tokens = options.max_tokens;
             if (options.temperature !== undefined) payload.temperature = options.temperature;
 
-            return fetch('/api/chat', {
+            return fetch('./api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -430,8 +439,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (typeof window.ApiClient.generateImage !== 'function') {
         window.ApiClient.generateImage = function (prompt, options) {
+            if (isStaticPagesHost()) return staticBackendUnavailable();
             options = options || {};
-            return fetch('/api/generate', {
+            return fetch('./api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -445,7 +455,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (typeof window.ApiClient.health !== 'function') {
         window.ApiClient.health = function () {
-            return fetch('/api/health').then(parseJsonResponse);
+            if (isStaticPagesHost()) return staticBackendUnavailable();
+            return fetch('./api/health').then(parseJsonResponse);
         };
     }
 })();

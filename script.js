@@ -108,7 +108,7 @@ function installApp(platform) {
 }
 function downloadAPK() {
     var link = document.createElement('a');
-    link.href = '/ArjonaAI.apk';
+    link.href = './ArjonaAI.apk';
     link.download = 'ArjonaAI.apk';
     document.body.appendChild(link);
     link.click();
@@ -1891,13 +1891,13 @@ function askAI(context, showInChat) {
             .then(handleAiReply)
             .catch(function (err) {
                 showTyping(false);
-                console.warn('Backend AI error:', err);
+                console.debug('Backend AI unavailable, using fallback:', err);
                 askAIFallback(context, showInChat);
             });
         return;
     }
 
-    fetch('/api/chat', {
+    fetch('./api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: messages, max_tokens: 220, temperature: 0.75 })
@@ -1909,7 +1909,7 @@ function askAI(context, showInChat) {
         .then(handleAiReply)
         .catch(function (err) {
             showTyping(false);
-            console.warn('Backend AI error:', err);
+            console.debug('Backend AI unavailable, using fallback:', err);
             askAIFallback(context, showInChat);
         });
 }
