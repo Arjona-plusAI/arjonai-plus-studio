@@ -15,8 +15,10 @@ var API = window.ApiClient || null;
    Sahi tarika: ek backend proxy banao jo key ko chupaye.
    Abhi production ke liye yahan apni nayi key daalo, ya empty rakho. */
 
-var GROQ_KEY = ''; // <-- yahan apni key daalo (temporary), ya backend proxy use karo
-window.GROQ_KEY = GROQ_KEY;
+// var GROQ_KEY = ''; // <-- yahan apni key daalo (temporary), ya backend proxy use karo
+// window.GROQ_KEY = GROQ_KEY;
+
+const grokApiKey = process
 
 /* ===== BG CANVAS ===== */
 
