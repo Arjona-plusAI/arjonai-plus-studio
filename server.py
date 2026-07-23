@@ -6,6 +6,7 @@ import requests
 app = Flask(__name__)
 CORS(app)
 
+
 # ===== CONFIG =====
 # Set this in Vercel Project Settings -> Environment Variables.
 # Name: GROQ_API_KEY, Value: your Groq key, then redeploy.
@@ -18,7 +19,6 @@ GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
-
 
 
 # ===== AI IMAGE GENERATE =====
@@ -176,9 +176,9 @@ def static_files(path):
 # ===== START SERVER: LOCAL ONLY =====
 if __name__ == '__main__':
     print('=' * 40)
-    print('🚀 ARJONA AI SERVER STARTING...')
+    print('ARJONA AI SERVER STARTING...')
     print('=' * 40)
-    print('👉 Open: http://localhost:5000')
+    print('Open: http://localhost:5000')
     print('=' * 40)
     app.run(
         host='0.0.0.0',
