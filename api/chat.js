@@ -3,7 +3,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    // Yahan Vercel apni key ko chupakar se inject karega
+    // Yahan Vercel se key aayegi, tumhare code me nahi
     const GROQ_KEY = process.env.GROQ_API_KEY; 
     const { messages } = req.body;
 
