@@ -3,6 +3,6 @@
       "target": {
         "namespace": "android_app",
         "package_name": "com.arjonai.studio",
-        "sha256_cert_fingerprints": ["E2:E6:5E:1B:01:18:3C:86:6D:4C:7D:4A:A9:87:ED:08:91:D5:41:5A:2C:18:7C:C1:61:67:B2:B9:BC:C0:F0:6B"]
+        "sha256_cert_fingerprints": ["F9:0F:AB:00:EC:B2:D3:13:B5:27:13:D6:53:4C:C0:4A:A5:D8:24:70:D5:84:AD:A0:B8:2A:52:A9:3A:0D:FD:D7"]
       }
     }]
