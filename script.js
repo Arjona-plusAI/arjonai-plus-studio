@@ -10,15 +10,12 @@ var UI = window.UIAnimations || null;
 var Physics = window.PhysicsEngine || null;
 var API = window.ApiClient || null;
 
-/* ===== GROQ AI KEY =====
-   WARNING: Yeh key PUBLIC hai. Koi bhi page source me dekh sakta hai.
-   Sahi tarika: ek backend proxy banao jo key ko chupaye.
-   Abhi production ke liye yahan apni nayi key daalo, ya empty rakho. */
+/* ===== BACKEND AI CONFIG =====
+   Groq key is intentionally NOT stored in frontend JavaScript.
+   /api/chat is handled by server.py, which reads GROQ_API_KEY from Vercel env vars. */
 
-// var GROQ_KEY = ''; // <-- yahan apni key daalo (temporary), ya backend proxy use karo
-// window.GROQ_KEY = GROQ_KEY;
-
-const grokApiKey = process
+var GROQ_KEY = '';
+window.GROQ_KEY = GROQ_KEY;
 
 /* ===== BG CANVAS ===== */
 
@@ -1842,7 +1839,6 @@ function showTyping(s) {
 
 function askAI(context, showInChat) {
     if (showInChat !== false) addAiMem('sys', context);
-    if (!GROQ_KEY) { askAIFallback(context, showInChat); return; }
     var canvasInfo = getCanvasContext();
     var selectedInfo = '';
     var el = findEl(selId);
@@ -1853,13 +1849,14 @@ function askAI(context, showInChat) {
             selectedInfo = 'Selected image, scale:' + el.scale;
         }
     }
+
     var messages = [{
         role: 'system',
         content: 'You are Arjona AI, a smart creative design assistant built into Arjona AI Studio app. ' +
             'You speak casual Hinglish (mix Hindi + English naturally). ' +
-            'You are friendly, funny, supportive like a best friend. ' +
-            'You help users design thumbnails, posters, social media graphics. ' +
-            'Keep replies short (max 40 words). ' +
+            'You are friendly, professional, supportive, and concise. ' +
+            'You help users design thumbnails, posters, social media graphics, image edits, layer actions, and prompts. ' +
+            'Keep replies short (max 45 words). ' +
             'Current canvas: ' + canvasInfo + '. ' + selectedInfo + '. ' +
             'Give practical creative suggestions. Always be encouraging and positive.'
     }];
@@ -1868,31 +1865,51 @@ function askAI(context, showInChat) {
         else if (m.role === 'bot') messages.push({ role: 'assistant', content: m.text });
     });
     messages.push({ role: 'user', content: context });
+
+    function handleAiReply(data) {
+        showTyping(false);
+        var text = '';
+        if (data && data.reply) text = String(data.reply).trim();
+        else if (data && data.choices && data.choices[0] && data.choices[0].message) text = String(data.choices[0].message.content || '').trim();
+        else if (typeof data === 'string') text = data.trim();
+        var low = text.toLowerCase();
+        if (!text || text.length < 2 || low.indexOf('<html') !== -1 || low.indexOf('<!doctype') !== -1 || low.indexOf('<body') !== -1 || low.indexOf('<script') !== -1 || low.charAt(0) === '<') {
+            text = 'Hello boss! Main ready hoon — bolo kya design help chahiye?';
+        }
+        text = text.substring(0, 600);
+        if (showInChat !== false) { addChatMsg(text, true); addAiMem('bot', text); }
+        updateLog(text);
+        if (ttsOn) speakTTS(text);
+    }
+
     showTyping(true);
+
+    // Production-safe Groq integration: call our backend proxy. The Groq key stays in
+    // Vercel environment variables and is never exposed in frontend JavaScript.
+    if (window.ApiClient && typeof window.ApiClient.chat === 'function') {
+        window.ApiClient.chat({ messages: messages, max_tokens: 220, temperature: 0.75 })
+            .then(handleAiReply)
+            .catch(function (err) {
+                showTyping(false);
+                console.warn('Backend AI error:', err);
+                askAIFallback(context, showInChat);
+            });
+        return;
+    }
+
     fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_KEY },
-        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: messages, max_tokens: 150, temperature: 0.8 })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: messages, max_tokens: 220, temperature: 0.75 })
     })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            showTyping(false);
-            var text = '';
-            if (data && data.reply) text = String(data.reply).trim();
-            else if (data && data.choices && data.choices[0] && data.choices[0].message) text = String(data.choices[0].message.content || '').trim();
-            else if (typeof data === 'string') text = data.trim();
-            var low = text.toLowerCase();
-            if (!text || text.length < 2 || low.indexOf('<html') !== -1 || low.indexOf('<!doctype') !== -1 || low.indexOf('<body') !== -1 || low.indexOf('<script') !== -1 || low.charAt(0) === '<') {
-                text = 'Hello boss! Main ready hoon — bolo kya design help chahiye?';
-            }
-            text = text.substring(0, 250);
-            if (showInChat !== false) { addChatMsg(text, true); addAiMem('bot', text); }
-            updateLog(text);
-            if (ttsOn) speakTTS(text);
+        .then(function (r) {
+            if (!r.ok) throw new Error('Backend AI HTTP ' + r.status);
+            return r.json();
         })
+        .then(handleAiReply)
         .catch(function (err) {
             showTyping(false);
-            console.warn('Groq error:', err);
+            console.warn('Backend AI error:', err);
             askAIFallback(context, showInChat);
         });
 }
@@ -6927,3 +6944,33 @@ if (document.readyState === 'loading') {
     initArjonaAiBoxRuntimeFixes();
 }
 window.addEventListener('resize', function () { if (aiChatOpen) openAiChatBox(); });
+
+/* ============================================================================
+   INLINE HANDLER GLOBAL BRIDGE
+   Keeps legacy inline onclick/oninput/onchange attributes in index.html safe.
+   This does not create new behavior; it only confirms existing classic-script
+   functions are reachable on window for browser event-handler resolution.
+   ============================================================================ */
+(function exposeInlineHandlersForArjona() {
+    var names = [
+        'addImg','addShape','addText','aiAutoEnhance','aiObjectRemove','alignEl','applyAiArtStyle',
+        'applyBlur','applyCropResult','applyGrade','applyNoise','applySharpen','applyTextEffect',
+        'bgRemove','bgT','bpTab','cancelMobToolEditor','clearBg','closeCropOverlay','closeDownload',
+        'closeExport','closeHelp','closeLayers','closeMobMenu','closeMobToolEditor','closeProjects',
+        'closeTemplates','confirmMobToolEditor','doVoice','downloadAPK','edgeDetect','exportAs',
+        'flipCropHorizontal','flipCropVertical','flipH','generateAI','generateAIMobile','gradeP',
+        'grayscale','installApp','invertColors','layerOp','liveG','loadTemplates','mobSetSize',
+        'openBottomSheet','openCollage','openDownload','openExport','openFrames','openGoogleFonts',
+        'openGradient','openHelp','openLayers','openProjects','openQRGen','openStickers','openTemplates',
+        'openWatermark','pixelate','posterize','preBg','quickAsk','resetAll','resetGrade',
+        'rotateCropImage','rotateCropLeft','saveCurrentProject','selectBottomTab','sendAiChat','setBg',
+        'setMode','setProp','setTxt','setupC','startAiVoice','toggleAiChat','toggleAiIdeasDrawer',
+        'toggleCircularCrop','toggleCropMode','toggleDrawMode','toggleEyedropper','toggleFullscreenCrop',
+        'toggleGrid','toggleLockRatio','toggleMobMenu','toggleTTS','toggleTheme','triggerAiIdeaPrompt',
+        'triggerRedo','triggerUndo','upFont','uploadImageForAiArtStyle','zoomCropImage'
+    ];
+    for (var i = 0; i < names.length; i++) {
+        var n = names[i];
+        if (typeof window[n] === 'function') window[n] = window[n];
+    }
+})();

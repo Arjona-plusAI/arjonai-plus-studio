@@ -19,7 +19,7 @@ const AnimationManager = (function () {
         linear: t => t,
         easeIn: t => t * t,
         easeOut: t => t * (2 - t),
-        easeInOut: t => t < 0.5 ? 2  *t*  t : -1 + (4 - 2  *t)*  t,
+        easeInOut: t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
         spring: t => 1 - Math.cos(t * Math.PI * 4) * Math.pow(1 - t, 2.5),
         bounce: t => {
             if (t < 1 / 2.75) return 7.5625 * t * t;
@@ -29,7 +29,7 @@ const AnimationManager = (function () {
         },
         elastic: t => {
             if (t === 0 || t === 1) return t;
-            return -Math.pow(2, 10 * (t - 1)) * 
+            return -Math.pow(2, 10 * (t - 1)) *
                 Math.sin((t - 1.075) * (2 * Math.PI) / 0.3);
         },
         back: t => {
@@ -765,7 +765,7 @@ const CanvasAnimations = (function () {
         const particles = [];
         const count = 18;
         for (let i = 0; i < count; i++) {
-            const angle = (i / count)  *Math.PI*  2;
+            const angle = (i / count) * Math.PI * 2;
             const speed = 2 + Math.random() * 3;
             particles.push({
                 x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,

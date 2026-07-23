@@ -15,6 +15,7 @@ const ApiClient = (function () {
         RETRY_ATTEMPTS: 3,
         RETRY_DELAY: 1000
     };
+    
 
     /* ===== REQUEST QUEUE ===== */
     const queue = [];
@@ -23,7 +24,7 @@ const ApiClient = (function () {
 
     /* ===== CACHE ===== */
     const cache = new Map();
-    const CACHE_TTL = 5  *60*  1000;
+    const CACHE_TTL = 5 * 60 * 1000;
 
     function getCached(key) {
         const item = cache.get(key);
@@ -62,7 +63,7 @@ const ApiClient = (function () {
                 const res = await fetchWithTimeout(url, options);
                 if (res.ok || res.status === 200) return res;
                 if (res.status === 429) {
-                    await delay(CONFIG.RETRY_DELAY  *(i + 1)*  2);
+                    await delay(CONFIG.RETRY_DELAY * (i + 1) * 2);
                     continue;
                 }
                 throw new Error('HTTP ' + res.status);
@@ -381,3 +382,70 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     console.log('API Client Ready!');
 });
+
+/* ============================================================================
+   ARJONA BACKEND COMPATIBILITY ADAPTER
+   Non-breaking additions for the main app. Existing ApiClient.Image/Text/Voice
+   APIs remain unchanged. These helpers let script.js use the Flask/Vercel
+   backend proxy for Groq without exposing GROQ_API_KEY in frontend code.
+   ============================================================================ */
+(function attachArjonaBackendAdapter() {
+    if (!window.ApiClient) return;
+
+    function parseJsonResponse(res) {
+        return res.text().then(function (txt) {
+            var data = {};
+            try { data = txt ? JSON.parse(txt) : {}; }
+            catch (e) { data = { raw: txt }; }
+            if (!res.ok) {
+                var err = new Error(data.error || data.message || ('HTTP ' + res.status));
+                err.status = res.status;
+                err.data = data;
+                throw err;
+            }
+            return data;
+        });
+    }
+
+    if (typeof window.ApiClient.chat !== 'function') {
+        window.ApiClient.chat = function (input, options) {
+            options = options || {};
+            var payload = {};
+            if (typeof input === 'string') {
+                payload.prompt = input;
+            } else if (input && typeof input === 'object') {
+                payload = Object.assign({}, input);
+            }
+            if (options.model) payload.model = options.model;
+            if (options.max_tokens) payload.max_tokens = options.max_tokens;
+            if (options.temperature !== undefined) payload.temperature = options.temperature;
+
+            return fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(parseJsonResponse);
+        };
+    }
+
+    if (typeof window.ApiClient.generateImage !== 'function') {
+        window.ApiClient.generateImage = function (prompt, options) {
+            options = options || {};
+            return fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    width: options.width || 1280,
+                    height: options.height || 720
+                })
+            }).then(parseJsonResponse);
+        };
+    }
+
+    if (typeof window.ApiClient.health !== 'function') {
+        window.ApiClient.health = function () {
+            return fetch('/api/health').then(parseJsonResponse);
+        };
+    }
+})();

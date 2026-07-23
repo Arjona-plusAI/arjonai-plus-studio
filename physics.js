@@ -4,50 +4,86 @@
    (Clean - no changes needed, was already clean)
    ============================================ */
 
-'use strict';
+"use strict";
 
 const PhysicsEngine = (function () {
-
     /* ===== PARTICLE SYSTEM (DISABLED) ===== */
     const ParticleSystem = (function () {
         const TYPES = {
-            SPARK: 'spark',
-            DUST: 'dust',
-            STAR: 'star',
-            BUBBLE: 'bubble',
-            CONFETTI: 'confetti'
+            SPARK: "spark",
+            DUST: "dust",
+            STAR: "star",
+            BUBBLE: "bubble",
+            CONFETTI: "confetti",
         };
-        function init(canvasEl) { return; }
-        function emit(x, y, count, options) { return; }
-        function confetti(x, y, count) { return; }
-        function clear() { return; }
-        function stop() { return; }
+        function init(canvasEl) {
+            return;
+        }
+        function emit(x, y, count, options) {
+            return;
+        }
+        function confetti(x, y, count) {
+            return;
+        }
+        function clear() {
+            return;
+        }
+        function stop() {
+            return;
+        }
         return {
-            TYPES, init, emit, confetti, clear, stop,
-            get count() { return 0; }
+            TYPES,
+            init,
+            emit,
+            confetti,
+            clear,
+            stop,
+            get count() {
+                return 0;
+            },
         };
     })();
 
     /* ===== GRAVITY (unused but kept for compatibility) ===== */
     const GravitySystem = {
-        init: function () { return; },
-        addObject: function () { return; },
-        clear: function () { return; },
-        stop: function () { return; }
+        init: function () {
+            return;
+        },
+        addObject: function () {
+            return;
+        },
+        clear: function () {
+            return;
+        },
+        stop: function () {
+            return;
+        },
     };
 
     /* ===== MAGNETIC (unused) ===== */
     const MagneticField = {
-        init: function () { return; },
-        start: function () { return; },
-        stop: function () { return; }
+        init: function () {
+            return;
+        },
+        start: function () {
+            return;
+        },
+        stop: function () {
+            return;
+        },
     };
 
     /* ===== WAVES (unused) ===== */
     const WaveSystem = {
-        init: function () { return; },
-        start: function () { return; },
-        stop: function () { return; }
+        init: function () {
+            return;
+        },
+        start: function () {
+            return;
+        },
+        stop: function () {
+            return;
+        },
     };
 
     /* ===== SPRING (unused) ===== */
@@ -55,20 +91,24 @@ const PhysicsEngine = (function () {
         create: function () {
             return {
                 setTarget: function () { },
-                stop: function () { }
+                stop: function () { },
             };
-        }
+        },
     };
 
     /* ===== DRAG PHYSICS (unused) ===== */
     const DragPhysics = {
-        attach: function () { return {}; },
-        detach: function () { return; }
+        attach: function () {
+            return {};
+        },
+        detach: function () {
+            return;
+        },
     };
 
     /* ===== INIT ===== */
     function init() {
-        console.log('Physics Engine: Silent Mode');
+        console.log("Physics Engine: Silent Mode");
     }
 
     return {
@@ -78,7 +118,7 @@ const PhysicsEngine = (function () {
         Waves: WaveSystem,
         Spring: SpringSystem,
         Drag: DragPhysics,
-        init: init
+        init: init,
     };
 })();
 
@@ -86,8 +126,10 @@ const PhysicsEngine = (function () {
 window.PhysicsEngine = PhysicsEngine;
 
 /* ===== AUTO INIT ===== */
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { PhysicsEngine.init(); });
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+        PhysicsEngine.init();
+    });
 } else {
     PhysicsEngine.init();
 }

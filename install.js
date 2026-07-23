@@ -349,7 +349,7 @@ const InstallManager = (function () {
             if (checkInstalled()) return false;
             const dismissed = localStorage.getItem('install_dismissed');
             if (dismissed) {
-                const daysSince = (Date.now() - parseInt(dismissed)) / (1000 *60*  60 * 24);
+                const daysSince = (Date.now() - parseInt(dismissed)) / (1000 * 60 * 60 * 24);
                 if (daysSince < 3) return false;
             }
             if (localStorage.getItem('pwa_installed') === 'true') return false;
