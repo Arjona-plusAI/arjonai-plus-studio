@@ -1,7 +1,7 @@
 /* ============================================================================
    ARJONA +AI STUDIO — /api/chat (Vercel Node Serverless Function)
-   Mirrors the response contract of api/server.py (Flask) so the frontend
-   (script.js / api-client.js) can treat both backends identically:
+   Single backend for the mobile app. The frontend (script.js) calls
+   POST /api/chat and always receives JSON:
      Success -> { success: true, reply: "...", model: "..." }
      Failure -> { success: false, error: "...", ...optional detail }
    ============================================================================ */
