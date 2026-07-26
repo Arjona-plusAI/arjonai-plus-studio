@@ -1,21 +1,75 @@
 /* ============================================
-   ARJONA +AI STUDIO — CLEAN SCRIPT
-   All duplicate functions merged into single versions
+   ARJONA +AI STUDIO — MOBILE SCRIPT
+   Single-column mobile build. No desktop panels, no legacy backends.
    ============================================ */
 
-/* ===== MODULE REFERENCES ===== */
+/* ===== OPTIONAL MODULE REFERENCES =====
+   These enhancement modules are not shipped with the mobile build.
+   Every call site is guarded, so `null` is a valid, silent no-op. */
 
 var Anim = window.AnimationManager || null;
 var UI = window.UIAnimations || null;
-var Physics = window.PhysicsEngine || null;
-var API = window.ApiClient || null;
 
-/* ===== BACKEND AI CONFIG =====
-   Groq key is intentionally NOT stored in frontend JavaScript.
-   /api/chat is handled by server.py, which reads GROQ_API_KEY from Vercel env vars. */
+/* ============================================================================
+   BACKEND AI CONFIG — SINGLE ENDPOINT
+   The only backend this app talks to is the Node serverless handler at
+   /api/chat (see api/chat.js). The Groq key lives in a server-side env var
+   and is never present in frontend JavaScript.
+   ============================================================================ */
 
-var GROQ_KEY = '';
-window.GROQ_KEY = GROQ_KEY;
+var AI_CHAT_ENDPOINT = '/api/chat';
+
+/* Non-JSON guard.
+   A misconfigured host, an SPA rewrite, a captive portal or a 404 page will
+   answer a fetch with `text/html`. Parsing that as JSON throws, and dumping it
+   into the DOM would render raw markup. `readJsonSafe` therefore inspects the
+   content type, reads the body as text exactly once, and only then attempts
+   JSON.parse — returning a typed Error instead of ever surfacing markup. */
+function readJsonSafe(response) {
+    var contentType = (response.headers && response.headers.get('content-type')) || '';
+    return response.text().then(function (raw) {
+        var body = (raw || '').trim();
+
+        if (contentType.toLowerCase().indexOf('application/json') === -1) {
+            var looksLikeMarkup =
+                body.charAt(0) === '<' ||
+                body.toLowerCase().indexOf('<!doctype') !== -1 ||
+                body.toLowerCase().indexOf('<html') !== -1;
+            if (looksLikeMarkup || !body) {
+                throw new Error(
+                    'Endpoint ' + AI_CHAT_ENDPOINT + ' returned ' +
+                    (contentType || 'an unknown content type') +
+                    ' instead of JSON (HTTP ' + response.status + ').'
+                );
+            }
+        }
+
+        try {
+            return JSON.parse(body);
+        } catch (parseErr) {
+            throw new Error('Malformed JSON from ' + AI_CHAT_ENDPOINT + ': ' + parseErr.message);
+        }
+    });
+}
+
+/* Single funnel for every AI chat request in the app. */
+function postChat(payload) {
+    return fetch(AI_CHAT_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload || {})
+    }).then(function (response) {
+        return readJsonSafe(response).then(function (data) {
+            if (!response.ok || (data && data.success === false)) {
+                throw new Error((data && data.error) || ('Chat request failed (HTTP ' + response.status + ')'));
+            }
+            return data;
+        });
+    });
+}
+
+window.AI_CHAT_ENDPOINT = AI_CHAT_ENDPOINT;
+window.postChat = postChat;
 
 /* ===== BG CANVAS ===== */
 
@@ -130,8 +184,6 @@ var els = [], selId = null, aiBg = null, bgCf = null;
 var uS = [], rS = [], histLabels = [];
 var mode = 'select', bSz = 25;
 var drag = false, dX = 0, dY = 0;
-var resLOn = false, resLX = 0, resLW = 0;
-var resBOn = false, resBY = 0, resBH = 0;
 var cornerDrag = null, cornerStartX = 0, cornerStartY = 0, cornerStartScale = 100, cornerStartFontSize = 60;
 var drawingMode = false, isDrawing = false;
 var cropMode = false, cropRatio = '1', cropRotation = 0;
@@ -385,28 +437,17 @@ function editLayerById(id) {
     selId = id;
     if (typeof sUI === 'function') sUI();
     if (typeof showCornerHandles === 'function') showCornerHandles(el);
-    if (window.innerWidth <= 900) {
-        if (el.type === 'text') {
-            if (typeof selectBottomTab === 'function') selectBottomTab('type');
-            if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'typography', label: 'Typography', requiresSelection: false }, 'Type');
-            setTimeout(function() {
-                var inp = document.querySelector('.mob-tool-editor .text-input-field');
-                if (inp) { inp.value = el.text || ''; inp.focus(); inp.select(); }
-            }, 150);
-        } else {
-            if (typeof selectBottomTab === 'function') selectBottomTab('image');
-            if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale_rotate', label: 'Scale & Rotate', requiresSelection: false }, 'Image');
-        }
+    if (typeof closeLayers === 'function') closeLayers();
+    if (el.type === 'text') {
+        if (typeof selectBottomTab === 'function') selectBottomTab('type');
+        if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'typography', label: 'Typography', requiresSelection: false }, 'Type');
+        setTimeout(function () {
+            var inp = document.querySelector('.mob-tool-editor .text-input-field');
+            if (inp) { inp.value = el.text || ''; inp.focus(); inp.select(); }
+        }, 150);
     } else {
-        if (typeof closeLayers === 'function') closeLayers();
-        if (el.type === 'text') {
-            var textTab = document.querySelector('[data-p="bpText"]');
-            if (textTab && typeof bpTab === 'function') bpTab(textTab);
-            setTimeout(function() { var di = document.getElementById('txtIn'); if (di) { di.focus(); di.select(); } }, 200);
-        } else {
-            var transTab = document.querySelector('[data-p="bpTrans"]');
-            if (transTab && typeof bpTab === 'function') bpTab(transTab);
-        }
+        if (typeof selectBottomTab === 'function') selectBottomTab('image');
+        if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale_rotate', label: 'Scale & Rotate', requiresSelection: false }, 'Image');
     }
 }
 
@@ -1796,18 +1837,8 @@ function toggleAiChat() {
     aiChatOpen = !aiChatOpen;
     if (aiChatOpen) {
         box.classList.remove('hidden');
+        // Placement is owned by the stylesheet's mobile containment layer.
         box.style.left = ''; box.style.top = '';
-        if (window.innerWidth <= 900) {
-            box.style.bottom = '178px';
-            box.style.right = '14px';
-            box.style.width = 'calc(100vw - 28px)';
-            box.style.maxHeight = 'calc(100dvh - 240px)';
-        } else {
-            box.style.bottom = '70px';
-            box.style.right = '14px';
-            box.style.width = '350px';
-            box.style.maxHeight = '480px';
-        }
     } else {
         box.classList.add('hidden');
     }
@@ -1869,69 +1900,54 @@ function askAI(context, showInChat) {
     });
     messages.push({ role: 'user', content: context });
 
+    /* Defence in depth: even though /api/chat sanitises its own output and
+       readJsonSafe rejects HTML responses, the reply is re-checked here before
+       it can reach the DOM. It is rendered with .innerText (never .innerHTML),
+       so a stray tag is displayed as literal text, never parsed as markup. */
     function handleAiReply(data) {
         showTyping(false);
         var text = '';
         if (data && data.reply) text = String(data.reply).trim();
-        else if (data && data.choices && data.choices[0] && data.choices[0].message) text = String(data.choices[0].message.content || '').trim();
-        else if (typeof data === 'string') text = data.trim();
+        else if (data && data.choices && data.choices[0] && data.choices[0].message) {
+            text = String(data.choices[0].message.content || '').trim();
+        }
+
         var low = text.toLowerCase();
-        if (!text || text.length < 2 || low.indexOf('<html') !== -1 || low.indexOf('<!doctype') !== -1 || low.indexOf('<body') !== -1 || low.indexOf('<script') !== -1 || low.charAt(0) === '<') {
+        var looksLikeMarkup =
+            !text ||
+            text.length < 2 ||
+            low.charAt(0) === '<' ||
+            low.indexOf('<html') !== -1 ||
+            low.indexOf('<!doctype') !== -1 ||
+            low.indexOf('<body') !== -1 ||
+            low.indexOf('<script') !== -1;
+
+        if (looksLikeMarkup) {
             text = 'Hello boss! Main ready hoon — bolo kya design help chahiye?';
         }
+
         text = text.substring(0, 600);
         if (showInChat !== false) { addChatMsg(text, true); addAiMem('bot', text); }
         updateLog(text);
         if (ttsOn) speakTTS(text);
     }
 
-    showTyping(true);
-
-    // Production-safe Groq integration: call our backend proxy. The Groq key stays in
-    // Vercel environment variables and is never exposed in frontend JavaScript.
-    if (window.ApiClient && typeof window.ApiClient.chat === 'function') {
-        window.ApiClient.chat({ messages: messages, max_tokens: 220, temperature: 0.75 })
-            .then(handleAiReply)
-            .catch(function (err) {
-                showTyping(false);
-                console.debug('Backend AI unavailable, using fallback:', err);
-                askAIFallback(context, showInChat);
-            });
-        return;
+    /* Never leak a raw endpoint response into the UI. Errors are logged for
+       developers and replaced with a short human message for the user. */
+    function handleAiError(err) {
+        showTyping(false);
+        console.warn('[Arjona AI] ' + AI_CHAT_ENDPOINT + ' unavailable:', err && err.message ? err.message : err);
+        if (showInChat !== false) {
+            addChatMsg('AI service abhi reachable nahi hai. Thodi der baad try karo.', true);
+        }
+        updateLog('AI service unavailable');
     }
 
-    fetch('./api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messages, max_tokens: 220, temperature: 0.75 })
-    })
-        .then(function (r) {
-            if (!r.ok) throw new Error('Backend AI HTTP ' + r.status);
-            return r.json();
-        })
-        .then(handleAiReply)
-        .catch(function (err) {
-            showTyping(false);
-            console.debug('Backend AI unavailable, using fallback:', err);
-            askAIFallback(context, showInChat);
-        });
-}
+    showTyping(true);
 
-function askAIFallback(context, showInChat) {
-    var prompt = 'You are Arjona AI, friendly Hinglish design assistant. Max 30 words. Context: ' + context;
-    fetch('https://text.pollinations.ai/' + encodeURIComponent(prompt))
-        .then(function (r) { return r.text(); })
-        .then(function (text) {
-            text = (text || '').trim();
-            var low = text.toLowerCase();
-            if (!text || low.indexOf('<html') !== -1 || low.indexOf('<!doctype') !== -1 || low.indexOf('<body') !== -1 || low.indexOf('<script') !== -1 || low.charAt(0) === '<') {
-                text = 'Hello boss! Main ready hoon — bolo kya design help chahiye?';
-            }
-            text = text.substring(0, 150);
-            if (showInChat !== false) { addChatMsg(text, true); addAiMem('bot', text); }
-            updateLog(text);
-        })
-        .catch(function () { if (showInChat !== false) addChatMsg('Network issue hai, retry karo!', true); });
+    postChat({ messages: messages, max_tokens: 220, temperature: 0.75 })
+        .then(handleAiReply)
+        .catch(handleAiError);
 }
 
 function sendAiChat() {
@@ -2183,9 +2199,8 @@ function react(k) { }
 
 function updateLog(text) {
     var l1 = document.getElementById('logTxt');
-    var l2 = document.getElementById('logTxt2');
+
     if (l1) l1.innerText = text;
-    if (l2) l2.innerText = text;
 }
 
 /* ===== THEME ===== */
@@ -2769,13 +2784,7 @@ function addText() {
     });
     selId = els[els.length - 1].id;
     sH('Add Text'); R(); sUI(); updateCanvasInfo();
-    if (window.innerWidth <= 900) {
-        var typeBtn = document.querySelector('[data-sheet="sheetText"]');
-        if (typeBtn) openBottomSheet(typeBtn, 'sheetText');
-    } else {
-        var textTab = document.querySelector('[data-p="bpText"]');
-        if (textTab) bpTab(textTab);
-    }
+    if (typeof selectBottomTab === 'function') selectBottomTab('type');
 }
 
 function addImg(ev) {
@@ -3062,10 +3071,9 @@ function upFont(ev) {
 function sUI() {
     var el = findEl(selId);
     var lb = document.getElementById('selLbl');
-    var lbd = document.getElementById('selLblDesk');
+
     var name = el ? (el.type === 'text' ? '"' + (el.text || '').substring(0, 8) + '"' : 'Image') : 'None';
     if (lb) lb.innerText = name;
-    if (lbd) lbd.innerText = name;
     if (!el) {
         showSelBar(null);
         if (window._lastDynamicSelId !== null) {
@@ -3075,7 +3083,7 @@ function sUI() {
         return;
     }
 
-    if (window._lastDynamicSelId !== selId && window.innerWidth <= 900) {
+    if (window._lastDynamicSelId !== selId) {
         window._lastDynamicSelId = selId;
         if (el.type === 'text') {
             if (typeof selectBottomTab === 'function') selectBottomTab('type', null, true);
@@ -3253,8 +3261,7 @@ function R() {
         ctx.restore();
     }
 
-    var hideSelectionWhileSheetOpen = window.innerWidth <= 900 && document.body.classList.contains('sheet-open');
-    if (selId && !hideSelectionWhileSheetOpen) {
+    if (selId) {
         var sel = findEl(selId);
         if (sel) {
             ctx.save();
@@ -3679,10 +3686,8 @@ function doVoice(ev) {
    INIT
    ============================================ */
 window.addEventListener('DOMContentLoaded', function () {
-    try { Anim = window.AnimationManager || null; } catch(e) {}
-    try { UI = window.UIAnimations || null; } catch(e) {}
-    try { Physics = window.PhysicsEngine || null; } catch(e) {}
-    try { API = window.ApiClient || null; } catch(e) {}
+    try { Anim = window.AnimationManager || null; } catch (e) { }
+    try { UI = window.UIAnimations || null; } catch (e) { }
 
     try { initSplash(); } catch(e) { console.warn('initSplash err:', e); }
     try { initTheme(); } catch(e) { console.warn('initTheme err:', e); }
@@ -3719,17 +3724,6 @@ window.addEventListener('DOMContentLoaded', function () {
         setTimeout(function () { if (cropMode) initCropBox(); }, 200);
     });
 
-    var rL = document.getElementById('resizeLeft');
-    var rB = document.getElementById('resizeBottom');
-    var lSb = document.getElementById('leftSidebar');
-    var bPn = document.getElementById('bottomPanel');
-    if (rL && lSb) {
-        rL.addEventListener('mousedown', function (e) { e.preventDefault(); resLOn = true; resLX = e.clientX; resLW = lSb.getBoundingClientRect().width; });
-    }
-    if (rB && bPn) {
-        rB.addEventListener('mousedown', function (e) { e.preventDefault(); resBOn = true; resBY = e.clientY; resBH = bPn.getBoundingClientRect().height; });
-    }
-
     var corners = ['rhNW', 'rhNE', 'rhSW', 'rhSE'];
     for (var ci = 0; ci < corners.length; ci++) {
         (function (cid) {
@@ -3745,14 +3739,6 @@ window.addEventListener('DOMContentLoaded', function () {
     }
 
     document.addEventListener('mousemove', function (e) {
-        if (resLOn && lSb) {
-            var nw = Math.max(160, Math.min(380, resLW + (e.clientX - resLX)));
-            lSb.style.width = nw + 'px'; lSb.style.minWidth = nw + 'px'; lSb.style.maxWidth = nw + 'px';
-        }
-        if (resBOn && bPn) {
-            var nh = Math.max(44, Math.min(window.innerHeight * 0.6, resBH - (e.clientY - resBY)));
-            bPn.style.height = nh + 'px';
-        }
         if (cornerDrag) handleCornerDrag(e.clientX, e.clientY);
     });
 
@@ -3763,8 +3749,6 @@ window.addEventListener('DOMContentLoaded', function () {
     }, { passive: false });
 
     document.addEventListener('mouseup', function () {
-        if (resLOn) resLOn = false;
-        if (resBOn) resBOn = false;
         if (cornerDrag) { cornerDrag = null; sH('Resize'); }
         mobResizing = false;
     });
@@ -3860,27 +3844,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 selId = hit.id; if(typeof sUI === 'function') sUI();
                 var di = document.getElementById('txtIn');
                 if (di) di.value = hit.text || '';
-                if (window.innerWidth <= 900) {
-                    if (typeof selectBottomTab === 'function') selectBottomTab('type');
-                    if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'typography', label: 'Typography', requiresSelection: false }, 'Type');
-                    setTimeout(function () {
-                        var inp = document.querySelector('.mob-tool-editor .text-input-field');
-                        if (inp) { inp.value = hit.text || ''; inp.focus(); inp.select(); }
-                    }, 150);
-                } else {
-                    var textTab = document.querySelector('[data-p="bpText"]');
-                    if (textTab) bpTab(textTab);
-                    setTimeout(function () { if (di) { di.focus(); di.select(); } }, 200);
-                }
+                if (typeof selectBottomTab === 'function') selectBottomTab('type');
+                if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'typography', label: 'Typography', requiresSelection: false }, 'Type');
+                setTimeout(function () {
+                    var inp = document.querySelector('.mob-tool-editor .text-input-field');
+                    if (inp) { inp.value = hit.text || ''; inp.focus(); inp.select(); }
+                }, 150);
             } else if (hit && hit.type === 'image') {
                 selId = hit.id; if(typeof sUI === 'function') sUI(); if(typeof showCornerHandles === 'function') showCornerHandles(hit);
-                if (window.innerWidth <= 900) {
-                    if (typeof selectBottomTab === 'function') selectBottomTab('image');
-                    if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale_rotate', label: 'Scale & Rotate', requiresSelection: false }, 'Image');
-                } else {
-                    var transTab = document.querySelector('[data-p="bpTrans"]');
-                    if (transTab) bpTab(transTab);
-                }
+                if (typeof selectBottomTab === 'function') selectBottomTab('image');
+                if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale_rotate', label: 'Scale & Rotate', requiresSelection: false }, 'Image');
             }
             lastTapTime = 0;
         } else {
@@ -3896,27 +3869,16 @@ document.addEventListener('DOMContentLoaded', function () {
             selId = hit.id; if(typeof sUI === 'function') sUI();
             var di = document.getElementById('txtIn');
             if (di) di.value = hit.text || '';
-            if (window.innerWidth <= 900) {
-                if (typeof selectBottomTab === 'function') selectBottomTab('type');
-                if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'typography', label: 'Typography', requiresSelection: false }, 'Type');
-                setTimeout(function () {
-                    var inp = document.querySelector('.mob-tool-editor .text-input-field');
-                    if (inp) { inp.value = hit.text || ''; inp.focus(); inp.select(); }
-                }, 150);
-            } else {
-                var textTab = document.querySelector('[data-p="bpText"]');
-                if (textTab) bpTab(textTab);
-                setTimeout(function () { if (di) { di.focus(); di.select(); } }, 200);
-            }
+            if (typeof selectBottomTab === 'function') selectBottomTab('type');
+            if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'typography', label: 'Typography', requiresSelection: false }, 'Type');
+            setTimeout(function () {
+                var inp = document.querySelector('.mob-tool-editor .text-input-field');
+                if (inp) { inp.value = hit.text || ''; inp.focus(); inp.select(); }
+            }, 150);
         } else if (hit && hit.type === 'image') {
             selId = hit.id; if(typeof sUI === 'function') sUI(); if(typeof showCornerHandles === 'function') showCornerHandles(hit);
-            if (window.innerWidth <= 900) {
-                if (typeof selectBottomTab === 'function') selectBottomTab('image');
-                if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale_rotate', label: 'Scale & Rotate', requiresSelection: false }, 'Image');
-            } else {
-                var transTab = document.querySelector('[data-p="bpTrans"]');
-                if (transTab) bpTab(transTab);
-            }
+            if (typeof selectBottomTab === 'function') selectBottomTab('image');
+            if (typeof openMobToolEditor === 'function') openMobToolEditor({ id: 'scale_rotate', label: 'Scale & Rotate', requiresSelection: false }, 'Image');
         }
     });
 });
@@ -6482,17 +6444,7 @@ function openAiChatBox() {
     box.style.left = '';
     box.style.top = '';
     box.style.transform = '';
-    if (window.innerWidth <= 900) {
-        box.style.bottom = '148px';
-        box.style.right = '12px';
-        box.style.width = 'calc(100vw - 24px)';
-        box.style.maxHeight = 'calc(100dvh - 172px)';
-    } else {
-        box.style.bottom = '70px';
-        box.style.right = '14px';
-        box.style.width = '350px';
-        box.style.maxHeight = '520px';
-    }
+    // Size and offsets come from the stylesheet (mobile containment layer).
     setTimeout(function () {
         var inp = document.getElementById('aiChatInput');
         if (inp) inp.focus();
