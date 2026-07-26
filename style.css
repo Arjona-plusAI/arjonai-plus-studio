@@ -100,6 +100,7 @@
 html,
 body {
     background: #0D1117;
+    overflow-x: hidden;
     overscroll-behavior: none;
     overscroll-behavior-y: contain;
     width: 100%;
@@ -3700,13 +3701,32 @@ body.sheet-open .canvas-area {
     width: auto;
 }
 
+/* The drawer is anchored to the column's right edge and slid out with a
+   transform. Offsetting by a negative `right` is NOT safe here: on a wide
+   screen the gutter is large, so `gutter - 280px` can resolve to a positive
+   value and park the closed drawer in the visible gutter. Visibility +
+   translate keeps it reliably hidden at every viewport width. */
 .mob-menu-drawer {
-    right: calc(var(--shell-gutter) - 280px);
+    right: var(--shell-gutter);
     width: min(260px, calc(var(--shell-w) - 60px));
+    transform: translateX(100%);
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .32s cubic-bezier(.4, 0, .2, 1),
+                opacity .2s ease,
+                visibility 0s linear .32s;
 }
 
 .mob-menu-drawer.open {
     right: var(--shell-gutter);
+    transform: translateX(0);
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transition: transform .32s cubic-bezier(.4, 0, .2, 1),
+                opacity .2s ease,
+                visibility 0s linear 0s;
 }
 
 /* --- AI assistant: single authoritative placement --- */
@@ -3829,4 +3849,213 @@ textarea {
         background: inherit;
         transform: none;
     }
+}
+
+/* ============================================================
+   LEGACY DESKTOP SUPPRESSION  (must remain the LAST block)
+   ------------------------------------------------------------
+   Defence in depth. If any legacy desktop markup is still served
+   (an older cached index.html, a stale CDN copy, or a WebView
+   asset bundle that wasn't refreshed), its controls would other-
+   wise render as raw, unstyled inputs floating over the canvas:
+   the "1280 x 720" <select>, colour pickers, range sliders, etc.
+
+   These rules guarantee the canvas stays visually clean no matter
+   which HTML is deployed. Hidden elements remain in the DOM, so
+   `.value` reads/writes and `qImg.click()` keep working.
+   ============================================================ */
+
+.desk-only,
+.btn-download,
+.mmi-icon,
+.tb-icon,
+.tb-desk,
+.tb-sel,
+.tb-sep,
+.tb-btn,
+.left-sb,
+#leftSidebar,
+.ai-box,
+.bottom-panel,
+#bottomPanel,
+.bp-tabs,
+.bp-body,
+.bp-pan,
+.bp-col,
+.statusbar,
+.resize-handle,
+.resize-h,
+.resize-v,
+#resizeLeft,
+#resizeBottom,
+.middle > aside,
+.mob-sheet,
+.mob-sheet-overlay,
+.upz,
+.act-row,
+.bg-tabs,
+.bgp,
+.sw-grid,
+.pat-row,
+.fx-row,
+.mode-row,
+.px-grid,
+.gp-grid,
+.quick-tools-grid,
+.shape-tools-grid,
+.bg-remove-grid,
+.ai-tools-grid,
+.text-effects-grid,
+.log-bar,
+.sel-info,
+.grade-actions,
+.state-store,
+#stateStore {
+    display: none !important;
+}
+
+/* Raw state inputs must never paint over the canvas. They are hidden
+   wherever they sit loose in the document, then re-enabled below for the
+   containers that are actually styled mobile surfaces. */
+body > input,
+body > select,
+body > textarea,
+body > .sld,
+body > .cr,
+.canvas-area input,
+.canvas-area select,
+.canvas-area textarea,
+.cv-frame input,
+.cv-frame select,
+.cv-frame textarea,
+.middle input,
+.middle select,
+.middle textarea,
+.state-store input,
+.state-store select,
+.state-store textarea,
+#stateStore input,
+#stateStore select,
+#stateStore textarea {
+    display: none !important;
+}
+
+/* ---- Re-enable controls that legitimately live inside styled mobile
+        surfaces: the bottom-sheet tool editor, modals, the AI assistant,
+        the prompt bar and the crop overlay. ---- */
+.mob-tool-editor input,
+.mob-tool-editor select,
+.mob-tool-editor textarea,
+.mob-tool-editor-body input,
+.mob-tool-editor-body select,
+.mob-tool-editor-body textarea,
+.mob-panel-system input,
+.mob-panel-system select,
+.mob-panel-system textarea,
+.mob-top-bar input,
+.mob-top-bar select,
+.mob-top-bar textarea,
+.modal-overlay input,
+.modal-overlay select,
+.modal-overlay textarea,
+.modal-box input,
+.modal-box select,
+.modal-box textarea,
+.download-overlay input,
+.download-overlay select,
+.ai-chat-box input,
+.ai-chat-box select,
+.ai-chat-box textarea,
+.crop-overlay input,
+.crop-overlay select,
+.mob-menu-drawer input,
+.mob-menu-drawer select {
+    display: block !important;
+}
+
+/* File inputs stay programmatically clickable but never visible. */
+.mob-tool-editor input[type="file"],
+.mob-panel-system input[type="file"],
+.mob-top-bar input[type="file"],
+.modal-overlay input[type="file"],
+.ai-chat-box input[type="file"],
+input[type="file"].hidden-file {
+    display: none !important;
+}
+
+/* Inline flex rows inside the sheet editors keep their intended layout. */
+.mob-tool-editor .sld,
+.mob-tool-editor .cr,
+.modal-box .sld,
+.modal-box .cr {
+    display: flex !important;
+}
+
+.ai-chat-input input[type="text"],
+#aiChatInput {
+    display: block !important;
+}
+
+/* ---- Themed range sliders inside the bottom-sheet editors ----
+   Sheet controls are generated with `.sheet-sld` (not `.sld`), so without
+   this they fall back to the browser's default blue slider. */
+.mob-tool-editor input[type="range"],
+.sheet-sld input[type="range"],
+.modal-box input[type="range"] {
+    width: 100%;
+    height: 5px;
+    cursor: pointer;
+    accent-color: var(--ac);
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--range-track);
+    border-radius: 3px;
+    outline: none;
+}
+
+.mob-tool-editor input[type="range"]::-webkit-slider-thumb,
+.sheet-sld input[type="range"]::-webkit-slider-thumb,
+.modal-box input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(135deg, #00C6FF, #7F3DFF);
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 6px var(--glo);
+    cursor: pointer;
+}
+
+.mob-tool-editor input[type="range"]::-moz-range-thumb,
+.sheet-sld input[type="range"]::-moz-range-thumb,
+.modal-box input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: var(--ac);
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    cursor: pointer;
+}
+
+/* Colour swatches inside sheets: compact, tappable, themed. */
+.mob-tool-editor input[type="color"],
+.modal-box input[type="color"] {
+    width: 40px;
+    height: 32px;
+    min-height: 32px;
+    padding: 2px;
+    border: 1px solid var(--bd2);
+    border-radius: 8px;
+    background: var(--inp);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* Text/number/select fields inside sheets shouldn't inherit the 44px
+   full-width rule when they sit in a compact inline row. */
+.mob-tool-editor input[type="text"],
+.mob-tool-editor input[type="number"],
+.mob-tool-editor select {
+    min-height: 34px;
+    font-size: 13px;
 }
