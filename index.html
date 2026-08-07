@@ -9,10 +9,89 @@
     <meta name="theme-color" content="#0D1117">
     <title>Arjona AI Studio</title>
 
+    <!-- ==========================================================
+         CRITICAL ANTI-FOUC CSS  (must stay INLINE and FIRST)
+         ----------------------------------------------------------
+         An external stylesheet cannot prevent a flash that happens
+         *before that stylesheet arrives*. On a cold mobile/PWA load
+         the browser parses <body> and paints raw controls while
+         style.css is still in flight — sliders, colour pickers and
+         file inputs appear for a moment, then vanish.
+
+         These few rules are parsed with the HTML itself, so the raw
+         desktop/state controls are never painted even once. The full
+         stylesheet re-declares them later; this is purely the
+         first-paint guard.
+         ========================================================== -->
+    <style>
+        /* Nothing renders until the real stylesheet has applied. */
+        html:not(.css-ready) body { visibility: hidden; }
+
+        /* Belt and braces: suppress raw state controls at parse time. */
+        #stateStore,
+        .state-store,
+        #bgSC,
+        #qImg,
+        .bp-pan,
+        .bp-body,
+        .bp-tabs,
+        .bp-col,
+        .desk-only,
+        .tb-desk,
+        .left-sb,
+        .bottom-panel,
+        .statusbar {
+            display: none !important;
+        }
+
+        /* Raw colour/range/file controls are hidden wherever they sit
+           loose in the document. Controls inside a real mobile surface
+           (tool sheet, modal, AI box, prompt bar) are re-enabled by
+           style.css once it loads. */
+        body > input,
+        body > select,
+        body > textarea,
+        #stateStore input,
+        #stateStore select,
+        #stateStore textarea,
+        .state-store input,
+        .state-store select,
+        .state-store textarea,
+        .canvas-area input,
+        .cv-frame input,
+        .middle input,
+        .middle select,
+        .middle textarea {
+            display: none !important;
+        }
+
+        /* Prevent an unstyled white page flashing before the dark theme. */
+        html, body { background: #0D1117; margin: 0; }
+    </style>
+
     <!-- Relative paths only: works on GitHub Pages sub-paths, Vercel, and Android WebView
          (file:///android_asset/...). No <base> tag, no absolute roots. -->
     <link rel="stylesheet" href="./style.css">
     <link rel="manifest" href="./manifest.json">
+
+    <script>
+        // Reveal the UI only once style.css has actually applied, so the first
+        // paint the user sees is already styled. Multiple fallbacks guarantee
+        // the page can never stay hidden (offline, 404 CSS, WebView quirks).
+        (function () {
+            var root = document.documentElement;
+            function ready() { root.classList.add('css-ready'); }
+            var link = document.querySelector('link[rel="stylesheet"]');
+            if (link) {
+                if (link.sheet) ready();
+                link.addEventListener('load', ready);
+                link.addEventListener('error', ready);   // never block on failure
+            }
+            document.addEventListener('DOMContentLoaded', ready);
+            window.addEventListener('load', ready);
+            setTimeout(ready, 2500);                     // hard failsafe
+        })();
+    </script>
 
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -89,11 +168,46 @@
                 </label>
             </div>
             <div class="mob-canvas-size-row">
-                <span class="mob-cs-label">Canvas</span>
-                <button class="mob-cs-btn active" onclick="mobSetSize(this,1280,720)">HD</button>
-                <button class="mob-cs-btn" onclick="mobSetSize(this,1080,1080)">1:1</button>
-                <button class="mob-cs-btn" onclick="mobSetSize(this,720,1280)">9:16</button>
-                <button class="mob-cs-btn" onclick="mobSetSize(this,1920,1080)">FHD</button>
+                <!-- ===== GENERATION SETUP CONTROLS (next to Undo/Redo) =====
+                     These feed the generation API payload directly. They belong
+                     to AI Box only and never touch Arjona AI's state. -->
+                <span class="mob-cs-label">Type</span>
+                <select id="genImageType" class="mob-cs-select" title="What the generated image becomes"
+                    onchange="onGenTypeChange(this.value)">
+                    <option value="bg">Background</option>
+                    <option value="layer">Layer</option>
+                    <option value="subject">Subject</option>
+                    <option value="style">Style</option>
+                </select>
+
+                <span class="mob-cs-label">Ratio</span>
+                <select id="genAspectRatio" class="mob-cs-select" title="Aspect ratio of the generated image"
+                    onchange="onGenRatioChange(this.value)">
+                    <option value="1:1">1:1</option>
+                    <option value="16:9" selected>16:9</option>
+                    <option value="9:16">9:16</option>
+                    <option value="4:3">4:3</option>
+                    <option value="3:4">3:4</option>
+                    <option value="3:2">3:2</option>
+                    <option value="21:9">21:9</option>
+                    <option value="custom">Custom…</option>
+                </select>
+
+                <!-- Revealed only when "Custom…" is chosen -->
+                <span id="genCustomWrap" class="mob-cs-custom" style="display:none">
+                    <input type="number" id="genCustomW" class="mob-cs-num" min="64" max="4096" step="8" value="1280"
+                        title="Width (px)" oninput="onGenCustomDims()">
+                    <span class="mob-cs-x">×</span>
+                    <input type="number" id="genCustomH" class="mob-cs-num" min="64" max="4096" step="8" value="720"
+                        title="Height (px)" oninput="onGenCustomDims()">
+                </span>
+
+                <span class="mob-cs-dims" id="genDimsLabel" title="Output resolution">1280×720</span>
+
+                <button class="mob-cs-btn" onclick="applyGenRatioToCanvas()" title="Resize canvas to this ratio">
+                    Fit
+                </button>
+
                 <div class="mob-cs-divider"></div>
                 <button class="mob-cs-ud" onclick="triggerUndo()" title="Undo">
                     <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2"
@@ -110,6 +224,10 @@
                     </svg>
                 </button>
             </div>
+
+            <!-- AI Box's OWN result area. The "Edit in Arjona AI" button here is
+                 the single, explicit bridge between the two components. -->
+            <div id="aiBoxResult" class="aibox-result"></div>
         </div>
 
         <!-- ---------- CANVAS STAGE ---------- -->
@@ -695,6 +813,6 @@
             });
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a2134cbe1c673ebe',t:'MTc4NTA2NzgxMQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 
 </html>
