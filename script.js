@@ -900,7 +900,7 @@ function addShape(type) {
     var img = new Image();
     img.onload = function () {
         var mc = document.createElement('canvas');
-        mc.width = img.width; mc.height = img.height;
+        mc.width = Math.max(1, img.naturalWidth || img.width || 0); mc.height = Math.max(1, img.naturalHeight || img.height || 0);
         mc.getContext('2d').fillStyle = '#fff';
         mc.getContext('2d').fillRect(0, 0, mc.width, mc.height);
         els.push({
@@ -1680,7 +1680,7 @@ function openQRGen() {
     img.crossOrigin = 'anonymous';
     img.onload = function () {
         var mc = document.createElement('canvas');
-        mc.width = img.width; mc.height = img.height;
+        mc.width = Math.max(1, img.naturalWidth || img.width || 0); mc.height = Math.max(1, img.naturalHeight || img.height || 0);
         mc.getContext('2d').fillStyle = '#fff';
         mc.getContext('2d').fillRect(0, 0, mc.width, mc.height);
         els.push({
@@ -2405,15 +2405,7 @@ function mobSetSize(btn, w, h) {
     setupC(w, h);
 }
 function generateAIMobile() {
-    var prompt = document.getElementById('mobAiPrompt').value.trim();
-    if (!prompt) return;
-    var style = document.getElementById('mobAiStyle').value || '';
-    var el = document.getElementById('aiPrompt');
-    if (el) el.value = prompt;
-    var stEl = document.getElementById('aiStyle');
-    if (stEl) stEl.value = style;
-    var modeEl = document.getElementById('aiMode');
-    if (modeEl) modeEl.value = 'bg';
+    // Superseded by the decoupled AI Box module defined later in this file.
     generateAI();
 }
 
@@ -2801,7 +2793,7 @@ function loadI(file) {
         img.src = e.target.result;
         img.onload = function () {
             var mc = document.createElement('canvas');
-            mc.width = img.width; mc.height = img.height;
+            mc.width = Math.max(1, img.naturalWidth || img.width || 0); mc.height = Math.max(1, img.naturalHeight || img.height || 0);
             var mx = mc.getContext('2d');
             mx.fillStyle = '#fff'; mx.fillRect(0, 0, mc.width, mc.height);
             var sc = 50;
@@ -3243,11 +3235,16 @@ function R() {
             if (!el.content || !el.content.complete || !el.content.naturalWidth) { ctx.restore(); continue; }
             var w = el.content.width * (el.scale / 100);
             var h = el.content.height * (el.scale / 100);
+            // Canvas dimensions truncate to integers: a fractional size such as
+            // 0.4 becomes 0 and makes every later drawImage() throw. Round up so
+            // a sub-pixel layer still yields a valid 1px surface.
+            var tw = Math.max(1, Math.ceil(w));
+            var th = Math.max(1, Math.ceil(h));
             if (w <= 0 || h <= 0) { ctx.restore(); continue; }
             ctx.translate(el.x + w / 2, el.y + h / 2);
             ctx.rotate((el.rotate || 0) * Math.PI / 180);
             var tmp = document.createElement('canvas');
-            tmp.width = w; tmp.height = h;
+            tmp.width = tw; tmp.height = th;
             var tx = tmp.getContext('2d');
             tx.drawImage(el.content, 0, 0, w, h);
             if (el.eraserMask) {
@@ -3603,17 +3600,25 @@ function generateAI() {
 }
 
 function addAILayer(img) {
+    if (!img) return;
+    // A decoded image can still report 0x0 (broken/blocked response). Creating a
+    // 0-sized mask canvas makes every later drawImage() throw, so clamp to >=1.
+    var iw = Math.max(1, img.naturalWidth || img.width || 0);
+    var ih = Math.max(1, img.naturalHeight || img.height || 0);
+
     var mc = document.createElement('canvas');
-    mc.width = img.width; mc.height = img.height;
-    mc.getContext('2d').fillStyle = '#fff';
-    mc.getContext('2d').fillRect(0, 0, mc.width, mc.height);
+    mc.width = iw; mc.height = ih;
+    var mctx = mc.getContext('2d');
+    mctx.fillStyle = '#fff';
+    mctx.fillRect(0, 0, iw, ih);
+
     var sc = 50;
-    if (img.width * (sc / 100) > canvas.width * 0.65) sc = Math.floor(canvas.width * 0.65 / img.width * 100);
+    if (iw * (sc / 100) > canvas.width * 0.65) sc = Math.floor(canvas.width * 0.65 / iw * 100);
     sc = Math.max(12, sc);
     els.push({
         id: 'ai' + Date.now(), type: 'image', content: img,
-        x: canvas.width / 2 - img.width * (sc / 100) / 2,
-        y: canvas.height / 2 - img.height * (sc / 100) / 2,
+        x: canvas.width / 2 - iw * (sc / 100) / 2,
+        y: canvas.height / 2 - ih * (sc / 100) / 2,
         scale: sc, rotate: 0, opacity: 100, eraserMask: mc
     });
     selId = els[els.length - 1].id;
@@ -6317,23 +6322,213 @@ function syncDynamicToolbarVisibility() {
 }
 
 /* ============================================================================
-   INTELLIGENT BI-DIRECTIONAL TOP / BOTTOM AI CONNECTION ENGINE
-   Connects 'Describe your AI scene' prompt box with lower 'Arjona AI' box
+   AI BOX  —  STANDALONE GENERATION MODULE
+   ----------------------------------------------------------------------------
+   AI Box (the top "Describe your AI scene" bar) and Arjona AI (the bottom chat
+   assistant) are two INDEPENDENT components.
+
+     * AI Box owns:      #mobAiPrompt, #mobAiStyle, #genImageType, #genAspectRatio
+     * Arjona AI owns:   #aiChatInput, #aiChatBody, window.arjonaStagedAiImg
+
+   Hard rules enforced below:
+     1. Neither component reads or writes the other's text field.
+     2. Neither component appends messages into the other's UI.
+     3. There is no auto-trigger or global listener bridging them.
+
+   The ONE permitted connection is an explicit, user-initiated image handoff:
+   `sendGeneratedImageToArjonaAI()`, fired by the "Edit in Arjona AI" button.
+   It transfers pixels only — never text, never UI state.
    ============================================================================ */
 
-window.arjonaGenerationHistory = window.arjonaGenerationHistory || [];
-window.arjonaActiveGeneratedImg = window.arjonaActiveGeneratedImg || null;
+/* ---- AI Box private state (namespaced; nothing else may depend on it) ---- */
+var AIBox = {
+    lastImage: null,        // HTMLImageElement of the most recent generation
+    lastPrompt: '',         // kept for the AI Box result card only
+    history: [],            // AI Box's own generation log
+    type: 'bg',             // bg | layer | subject | style
+    ratio: '16:9',
+    customW: 1280,
+    customH: 720
+};
+window.AIBox = AIBox;
+
+/* ---- Aspect-ratio table. Longest edge is normalised to ~1280px so the
+        request stays inside the provider's limits. ---- */
+var AIBOX_RATIOS = {
+    '1:1': [1024, 1024],
+    '16:9': [1280, 720],
+    '9:16': [720, 1280],
+    '4:3': [1200, 900],
+    '3:4': [900, 1200],
+    '3:2': [1280, 853],
+    '21:9': [1280, 549]
+};
+
+/* Resolve the dimensions that go into the generation payload. */
+function getGenerationDimensions() {
+    if (AIBox.ratio === 'custom') {
+        var w = parseInt(AIBox.customW, 10) || 1280;
+        var h = parseInt(AIBox.customH, 10) || 720;
+        w = Math.max(64, Math.min(4096, w));
+        h = Math.max(64, Math.min(4096, h));
+        return [w, h];
+    }
+    return AIBOX_RATIOS[AIBox.ratio] || AIBOX_RATIOS['16:9'];
+}
+
+function updateGenDimsLabel() {
+    var d = getGenerationDimensions();
+    var el = document.getElementById('genDimsLabel');
+    if (el) el.textContent = d[0] + '×' + d[1];
+}
+
+function onGenTypeChange(v) {
+    AIBox.type = v || 'bg';
+    // Mirror into the hidden legacy state input so older helpers stay in sync.
+    var legacy = document.getElementById('aiMode');
+    if (legacy) legacy.value = (v === 'bg') ? 'bg' : 'layer';
+    if (typeof showStatusBadge === 'function') showStatusBadge('Generation type: ' + v);
+}
+
+function onGenRatioChange(v) {
+    AIBox.ratio = v || '16:9';
+    var wrap = document.getElementById('genCustomWrap');
+    if (wrap) wrap.style.display = (v === 'custom') ? 'inline-flex' : 'none';
+    updateGenDimsLabel();
+}
+
+function onGenCustomDims() {
+    var w = document.getElementById('genCustomW');
+    var h = document.getElementById('genCustomH');
+    if (w) AIBox.customW = w.value;
+    if (h) AIBox.customH = h.value;
+    updateGenDimsLabel();
+}
+
+/* Optional convenience: resize the canvas to match the chosen ratio. */
+function applyGenRatioToCanvas() {
+    var d = getGenerationDimensions();
+    if (typeof setupC === 'function') {
+        setupC(d[0], d[1]);
+        if (typeof showStatusBadge === 'function') {
+            showStatusBadge('Canvas set to ' + d[0] + '×' + d[1]);
+        }
+    }
+}
+
+/* ---- THE SINGLE PERMITTED BRIDGE ----------------------------------------
+   Explicit, user-initiated handoff of an image from AI Box to Arjona AI.
+   Transfers the image only. Does not read or write any AI Box text field,
+   and does not alter AI Box's UI beyond its own confirmation line.        */
+function sendGeneratedImageToArjonaAI() {
+    var img = AIBox.lastImage;
+    if (!img) {
+        if (typeof showStatusBadge === 'function') showStatusBadge('Generate an image first.');
+        return;
+    }
+
+    // Clone so Arjona AI edits never mutate AI Box's copy.
+    var handoff = new Image();
+    handoff.crossOrigin = 'anonymous';
+    handoff.onload = function () {
+        window.arjonaStagedAiImg = handoff;
+        window.arjonaStagedAiImgSrc = handoff.src;
+        window.arjonaStagedAiImgTransformed = false;
+
+        if (typeof openAiChatBox === 'function') openAiChatBox();
+        // Arjona AI renders its OWN card from its OWN state. AI Box does not
+        // compose or inject any message text into the chat body.
+        if (typeof renderAiStagedImageCard === 'function') renderAiStagedImageCard();
+        if (typeof showStatusBadge === 'function') showStatusBadge('Image sent to Arjona AI');
+    };
+    handoff.onerror = function () {
+        if (typeof showStatusBadge === 'function') showStatusBadge('Could not transfer the image.');
+    };
+    handoff.src = img.src;
+}
+window.sendGeneratedImageToArjonaAI = sendGeneratedImageToArjonaAI;
+
+/* Result card rendered inside AI BOX's own area (not the chat). */
+function renderAiBoxResultCard(promptText) {
+    var host = document.getElementById('aiBoxResult');
+    if (!host) return;
+    host.innerHTML = '';
+
+    var card = document.createElement('div');
+    card.className = 'aibox-result-card';
+
+    var thumb = document.createElement('img');
+    thumb.className = 'aibox-result-thumb';
+    thumb.src = AIBox.lastImage ? AIBox.lastImage.src : '';
+    thumb.alt = 'Generated image';
+
+    var meta = document.createElement('div');
+    meta.className = 'aibox-result-meta';
+    var d = getGenerationDimensions();
+    var title = document.createElement('div');
+    title.className = 'aibox-result-title';
+    title.textContent = 'Generated · ' + AIBox.type + ' · ' + d[0] + '×' + d[1];
+    var sub = document.createElement('div');
+    sub.className = 'aibox-result-sub';
+    // .textContent, never .innerHTML — the prompt is untrusted user input.
+    sub.textContent = promptText || '';
+    meta.appendChild(title);
+    meta.appendChild(sub);
+
+    var actions = document.createElement('div');
+    actions.className = 'aibox-result-actions';
+
+    var sendBtn = document.createElement('button');
+    sendBtn.className = 'aibox-send-btn';
+    sendBtn.type = 'button';
+    sendBtn.textContent = 'Edit in Arjona AI';
+    sendBtn.onclick = sendGeneratedImageToArjonaAI;
+
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'aibox-dismiss-btn';
+    closeBtn.type = 'button';
+    closeBtn.textContent = '✕';
+    closeBtn.title = 'Dismiss';
+    closeBtn.onclick = function () { host.innerHTML = ''; };
+
+    actions.appendChild(sendBtn);
+    actions.appendChild(closeBtn);
+
+    card.appendChild(thumb);
+    card.appendChild(meta);
+    card.appendChild(actions);
+    host.appendChild(card);
+}
 
 var _orig_generateAI = typeof generateAI === 'function' ? generateAI : null;
+/* AI Box generation.
+   Reads ONLY AI Box's own controls (#mobAiPrompt, #mobAiStyle, #genImageType,
+   #genAspectRatio). It never touches #aiChatInput or #aiChatBody. */
 function generateAI() {
-    var pv = (document.getElementById('aiPrompt')?.value || document.getElementById('mobAiPrompt')?.value || '').trim();
-    if (!pv && _orig_generateAI) return _orig_generateAI();
+    var promptEl = document.getElementById('mobAiPrompt');
+    var pv = (promptEl && promptEl.value || '').trim();
+    if (!pv) {
+        if (typeof showStatusBadge === 'function') showStatusBadge('Describe a scene first.');
+        return;
+    }
 
-    var style = document.getElementById('aiStyle')?.value || document.getElementById('mobAiStyle')?.value || '';
-    var aiMode = document.getElementById('aiMode')?.value || 'bg';
+    var style = document.getElementById('mobAiStyle')?.value || '';
+
+    // Type + aspect ratio come straight from the new top-bar controls and are
+    // passed directly into the generation payload.
+    var genType = AIBox.type || 'bg';
+    var dims = getGenerationDimensions();
+    var W = dims[0], H = dims[1];
+
+    // "subject" and "style" refine the prompt; they resolve to a layer on canvas.
+    var typeHint = '';
+    if (genType === 'subject') typeHint = ', isolated subject, clean plain background, centered';
+    else if (genType === 'style') typeHint = ', style reference sheet, texture, pattern';
+    else if (genType === 'bg') typeHint = ', wide establishing background scene';
+
     var url = 'https://image.pollinations.ai/prompt/' +
-        encodeURIComponent(pv + (style ? ' ' + style : '')) +
-        '?width=' + (canvas?.width || 1280) + '&height=' + (canvas?.height || 720) +
+        encodeURIComponent(pv + (style ? ' ' + style : '') + typeHint) +
+        '?width=' + W + '&height=' + H +
         '&nologo=true&seed=' + Math.floor(Math.random() * 99999);
 
     if (typeof loader !== 'undefined' && loader) loader.style.display = 'flex';
@@ -6347,28 +6542,25 @@ function generateAI() {
     nb.onload = function () {
         clearTimeout(to);
         if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
-        
-        window.arjonaActiveGeneratedImg = nb;
-        window.arjonaGenerationHistory.push({ prompt: pv, style: style, img: nb, mode: aiMode, time: Date.now() });
 
-        if (aiMode === 'bg') {
+        // Stored in AI Box's own namespace only.
+        AIBox.lastImage = nb;
+        AIBox.lastPrompt = pv;
+        AIBox.history.push({ prompt: pv, style: style, type: genType, w: W, h: H, time: Date.now() });
+
+        if (genType === 'bg') {
             aiBg = nb; bgCf = null;
-            if (typeof sH === 'function') sH('Top AI Background: ' + pv.substring(0, 15));
+            if (typeof sH === 'function') sH('AI Background');
             if (typeof R === 'function') R();
         } else {
+            // layer / subject / style all land as an editable layer
             if (typeof addAILayer === 'function') addAILayer(nb);
         }
 
-        var chatBody = document.getElementById('aiChatBody');
-        if (chatBody) {
-            var msgEl = document.createElement('div');
-            msgEl.className = 'ai-msg ai-msg-bot';
-            msgEl.style.borderLeft = '3px solid var(--ac)';
-            msgEl.innerHTML = `✨ <b>Top Scene Linked:</b> Generated "${pv}". This image is now synced to our lower assistant session. Ask me to restyle, cut background, or apply Ghibli/Cyberpunk filters directly on it!`;
-            chatBody.appendChild(msgEl);
-            chatBody.scrollTop = chatBody.scrollHeight;
-        }
-        if (typeof showStatusBadge === 'function') showStatusBadge('✨ Top & Bottom AI Synced: Scene Generated!');
+        // Result card renders inside AI BOX. Nothing is written to Arjona AI.
+        renderAiBoxResultCard(pv);
+
+        if (typeof showStatusBadge === 'function') showStatusBadge('Image generated (' + W + '×' + H + ')');
         if (typeof syncDynamicToolbarVisibility === 'function') syncDynamicToolbarVisibility();
     };
 
@@ -6381,9 +6573,7 @@ function generateAI() {
 }
 
 function generateAIMobile() {
-    var mobP = document.getElementById('mobAiPrompt');
-    var topP = document.getElementById('aiPrompt');
-    if (mobP && topP) topP.value = mobP.value;
+    // No cross-component copying: generateAI() reads AI Box's own field.
     generateAI();
 }
 
@@ -6742,15 +6932,12 @@ function sendAiChat() {
 
     if (/^(generate|create|draw|make a|make an)\b/.test(low) || low.indexOf('replace background') >= 0 || low.indexOf('space background') >= 0 || low.indexOf('sunset') >= 0 || low.indexOf('winter') >= 0) {
         var cleanPrompt = txt.replace(/^(generate|create|draw|make a|make an)\s+/i, '').trim();
-        var topP = document.getElementById('aiPrompt');
-        var mobP = document.getElementById('mobAiPrompt');
-        if (topP) topP.value = cleanPrompt;
-        if (mobP) mobP.value = cleanPrompt;
-        if (typeof generateAI === 'function') {
-            generateAI();
-            replyBot('Generating: "' + cleanPrompt + '". The result will sync with the canvas/session.');
+        // Arjona AI generates through its OWN isolated path. It must never
+        // write into AI Box's input field, so we do not touch #mobAiPrompt.
+        if (typeof arjonaGenerateOwnImage === 'function') {
+            arjonaGenerateOwnImage(cleanPrompt, replyBot);
         } else {
-            replyBot('Generation engine is not available in this build, but your prompt is ready: ' + cleanPrompt);
+            replyBot('Generation is unavailable in this build.');
         }
         return;
     }
@@ -6929,3 +7116,65 @@ window.addEventListener('resize', function () { if (aiChatOpen) openAiChatBox();
         if (typeof window[n] === 'function') window[n] = window[n];
     }
 })();
+
+/* ============================================================================
+   ARJONA AI  —  INDEPENDENT IMAGE GENERATION
+   ----------------------------------------------------------------------------
+   Arjona AI can generate on its own when the user asks it to. It uses the
+   canvas dimensions and its own staged-image slot. It deliberately does NOT
+   read AI Box's prompt/type/ratio controls, and never writes into them.
+   ============================================================================ */
+function arjonaGenerateOwnImage(promptText, replyFn) {
+    var pv = (promptText || '').trim();
+    if (!pv) {
+        if (typeof replyFn === 'function') replyFn('Tell me what to generate.');
+        return;
+    }
+
+    var W = (typeof canvas !== 'undefined' && canvas && canvas.width) ? canvas.width : 1280;
+    var H = (typeof canvas !== 'undefined' && canvas && canvas.height) ? canvas.height : 720;
+
+    var url = 'https://image.pollinations.ai/prompt/' +
+        encodeURIComponent(pv) +
+        '?width=' + W + '&height=' + H +
+        '&nologo=true&seed=' + Math.floor(Math.random() * 99999);
+
+    if (typeof replyFn === 'function') replyFn('Generating "' + pv + '". I will stage it here for you.');
+    if (typeof loader !== 'undefined' && loader) loader.style.display = 'flex';
+    var ldrMsg = document.getElementById('ldrMsg');
+    if (ldrMsg) ldrMsg.innerText = 'Generating...';
+
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    var to = setTimeout(function () {
+        if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+    }, 45000);
+
+    img.onload = function () {
+        clearTimeout(to);
+        if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+        // Lands in Arjona AI's OWN staged slot, awaiting an explicit "place".
+        window.arjonaStagedAiImg = img;
+        window.arjonaStagedAiImgSrc = img.src;
+        window.arjonaStagedAiImgTransformed = false;
+        if (typeof renderAiStagedImageCard === 'function') renderAiStagedImageCard();
+    };
+    img.onerror = function () {
+        clearTimeout(to);
+        if (typeof loader !== 'undefined' && loader) loader.style.display = 'none';
+        if (typeof replyFn === 'function') replyFn('That generation failed. Try again.');
+    };
+    img.src = url;
+}
+window.arjonaGenerateOwnImage = arjonaGenerateOwnImage;
+
+/* Initialise AI Box's top-bar controls from their markup defaults. */
+window.addEventListener('DOMContentLoaded', function () {
+    try {
+        var t = document.getElementById('genImageType');
+        var r = document.getElementById('genAspectRatio');
+        if (t) AIBox.type = t.value || 'bg';
+        if (r) AIBox.ratio = r.value || '16:9';
+        updateGenDimsLabel();
+    } catch (e) { /* controls are optional */ }
+});
