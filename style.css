@@ -4271,3 +4271,310 @@ input[type="range"]:not(.mob-tool-editor input):not(.mob-panel-system input):not
     border: none;
     cursor: pointer;
 }
+
+/* ============================================================
+   ARJONA AI BOX — LAYOUT REFINEMENTS
+   1. Style list -> horizontal scrollable slider above the input
+   2. Header: Ideas (left) · title (centre) · close X (right)
+   3. Ideas panel: centred text, breathing room, close X on the left
+   ============================================================ */
+
+/* ---------- 1. HORIZONTAL STYLE SLIDER ---------- */
+#aiArtStyleBar,
+.ai-art-style-bar {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    gap: 7px;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    padding: 8px 10px !important;
+    background: var(--sf2) !important;
+    border-top: 1px solid var(--bd) !important;
+    border-bottom: 1px solid var(--bd) !important;
+    flex: 0 0 auto !important;
+    /* Hide the scrollbar but keep the gesture. */
+    scrollbar-width: none;
+}
+
+#aiArtStyleBar::-webkit-scrollbar,
+.ai-art-style-bar::-webkit-scrollbar {
+    display: none;
+    height: 0;
+}
+
+#aiArtStyleBar .ai-art-btn,
+.ai-art-style-bar .ai-art-btn {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0 13px;
+    white-space: nowrap;
+    scroll-snap-align: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    border-radius: 16px;
+    cursor: pointer;
+    color: var(--tx1);
+    background: var(--inp);
+    border: 1px solid var(--bd2);
+    transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+
+#aiArtStyleBar .ai-art-btn:active,
+.ai-art-style-bar .ai-art-btn:active {
+    transform: scale(.96);
+}
+
+/* Selected chip */
+#aiArtStyleBar .ai-art-btn.primary-art,
+.ai-art-style-bar .ai-art-btn.primary-art {
+    color: #fff;
+    background: linear-gradient(135deg, #00C6FF, #7F3DFF);
+    border-color: transparent;
+    box-shadow: 0 2px 10px rgba(127, 61, 255, .35);
+}
+
+/* ---------- 2. CHAT HEADER ---------- */
+#aiChatBox .ai-chat-head {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px;
+    min-height: 44px !important;
+    padding: 6px 10px !important;
+}
+
+/* Override the older generic rule that stretched the first child. */
+#aiChatBox .ai-chat-head > div:first-child {
+    flex: 0 1 auto !important;
+}
+
+#aiChatBox .ai-chat-head-c {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: center;
+}
+
+#aiChatBox .ai-chat-title {
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Ideas trigger — top-left */
+#aiChatBox .ai-ideas-toggle-btn {
+    order: -1;
+    flex: 0 0 auto !important;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px;
+    height: 28px;
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--tx1);
+    background: var(--inp);
+    border: 1px solid var(--bd2);
+    border-radius: 14px;
+    cursor: pointer;
+}
+
+/* Close X — top-right */
+#aiChatBox .ai-chat-close {
+    flex: 0 0 auto !important;
+    width: 30px;
+    height: 30px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--tx1);
+    background: var(--inp);
+    border: 1px solid var(--bd2);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+#aiChatBox .ai-chat-close:active,
+#aiChatBox .ai-ideas-toggle-btn:active {
+    filter: brightness(1.25);
+}
+
+/* ---------- 3. IDEAS PANEL ---------- */
+#aiIdeasDrawer {
+    flex-direction: column;
+    gap: 0;
+    max-height: 210px !important;
+    padding: 0 !important;
+    background: var(--sf2) !important;
+}
+
+#aiIdeasDrawer.open,
+#aiIdeasDrawer[style*="flex"] {
+    display: flex !important;
+}
+
+/* Top bar of the panel: close X on the LEFT */
+.ai-ideas-head {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: var(--sf);
+    border-bottom: 1px solid var(--bd2);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.ai-ideas-close {
+    order: -1;
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    color: var(--tx1);
+    background: var(--inp);
+    border: 1px solid var(--bd2);
+    border-radius: 50%;
+    cursor: pointer;
+    padding: 0;
+}
+
+.ai-ideas-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    /* Centre-line alignment across the panel width. */
+    text-align: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--tx1);
+    letter-spacing: .2px;
+    /* Optical balance against the 24px close button. */
+    padding-right: 24px;
+}
+
+/* Prompt list: one per row, generous spacing, no cramping. */
+.ai-ideas-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 7px;
+    padding: 10px 12px 12px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.ai-ideas-list .ai-prompt-chip {
+    display: block;
+    width: 100%;
+    min-height: 38px;
+    padding: 9px 12px;
+    /* Centre-line alignment for every prompt line. */
+    text-align: center;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--tx1);
+    background: var(--inp);
+    border: 1px solid var(--bd2);
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: normal;
+}
+
+.ai-ideas-list .ai-prompt-chip:active {
+    background: var(--hov);
+    border-color: var(--ac);
+}
+
+/* ---------- 4. VERTICAL RHYTHM (no overlap / cramping) ---------- */
+#aiChatBox .ai-chat-body {
+    padding: 10px 12px !important;
+}
+
+/* Status lines such as "Processing OILPAINT..." read as centred captions. */
+#aiChatBox .ai-msg-bot {
+    text-align: center;
+}
+
+#aiChatBox .ai-msg-user {
+    text-align: right;
+}
+
+#aiChatBox .ai-suggestions {
+    display: flex !important;
+    gap: 6px;
+    padding: 8px 10px !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-top: 1px solid var(--bd);
+}
+
+#aiChatBox .ai-suggestions::-webkit-scrollbar {
+    display: none;
+}
+
+#aiChatBox .ai-chat-input {
+    gap: 7px !important;
+    padding: 9px 10px calc(9px + env(safe-area-inset-bottom, 0px)) !important;
+    border-top: 1px solid var(--bd) !important;
+}
+
+/* ---- Header polish: keep the status dot tight to the title ---- */
+#aiChatBox .ai-chat-head-c {
+    gap: 7px;
+    /* Offset the 30px close button so the title reads optically centred
+       against the wider Ideas pill on the left. */
+    padding-left: 4px;
+}
+
+#aiChatBox .ai-mood-dot {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    /* Sit immediately before the wordmark rather than floating mid-header. */
+    order: -1;
+}
+
+/* ---- Ideas panel: give the list room so the final prompt isn't clipped ---- */
+#aiIdeasDrawer {
+    /* Cap against the viewport instead of a fixed pixel height, so the last
+       row is always reachable on short screens. */
+    max-height: min(48vh, 320px) !important;
+}
+
+.ai-ideas-list {
+    /* Trailing space so the last chip clears the rounded panel edge. */
+    padding-bottom: 16px;
+    scroll-padding-bottom: 16px;
+}
+
+/* Fade hint that the prompt list continues below. */
+.ai-ideas-list::after {
+    content: '';
+    display: block;
+    height: 2px;
+    flex: 0 0 auto;
+}
