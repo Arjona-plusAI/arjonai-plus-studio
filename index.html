@@ -437,28 +437,30 @@
             <div class="ai-drag-bar"></div>
         </div>
         <canvas id="aiNebula" class="ai-nebula-canvas"></canvas>
+        <!-- Header: Ideas trigger top-LEFT · title centred · close X top-RIGHT -->
         <div class="ai-chat-head">
-            <div class="ai-chat-head-l">
+            <button class="ai-ideas-toggle-btn" onclick="toggleAiIdeasDrawer()" title="Command prompts &amp; ideas">
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 16v-4" />
+                    <path d="M12 8h.01" />
+                </svg>
+                <span>Ideas</span>
+            </button>
+
+            <div class="ai-chat-head-c">
                 <span class="ai-mood-dot"></span>
                 <span class="ai-chat-title">Arjona <span class="ai-tag">+AI</span></span>
             </div>
-            <div class="ai-chat-head-r">
-                <button class="ai-ideas-toggle-btn" onclick="toggleAiIdeasDrawer()" title="Command prompts &amp; ideas">
-                    <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M12 16v-4" />
-                        <path d="M12 8h.01" />
-                    </svg>
-                    <span>Ideas</span>
-                </button>
-                <button class="ai-chat-close" onclick="toggleAiChat()" title="Close">✕</button>
-            </div>
+
+            <button class="ai-chat-close" onclick="toggleAiChat()" title="Close">✕</button>
         </div>
 
         <div id="aiIdeasDrawer" class="ai-ideas-drawer">
+            <!-- Ideas panel top bar: close X on the LEFT -->
             <div class="ai-ideas-head">
-                <span>💡 Professional AI command prompts</span>
-                <button onclick="document.getElementById('aiIdeasDrawer').style.display='none'">✕</button>
+                <button class="ai-ideas-close" onclick="toggleAiIdeasDrawer(false)" title="Close ideas">✕</button>
+                <span class="ai-ideas-title">Professional AI command prompts</span>
             </div>
             <div class="ai-ideas-list">
                 <button class="ai-prompt-chip"
@@ -515,13 +517,16 @@
             <button class="ai-chip" onclick="quickAsk('add 3d effect')">3D</button>
         </div>
 
-        <div id="aiArtStyleBar" class="ai-art-style-bar">
-            <button class="ai-art-btn primary-art" onclick="applyAiArtStyle('ghibli')">Studio Ghibli</button>
-            <button class="ai-art-btn" onclick="applyAiArtStyle('cyberpunk')">Cyberpunk</button>
-            <button class="ai-art-btn" onclick="applyAiArtStyle('watercolor')">Watercolor</button>
-            <button class="ai-art-btn" onclick="applyAiArtStyle('oilpaint')">Oil Painting</button>
-            <button class="ai-art-btn" onclick="applyAiArtStyle('sketch')">Pencil Sketch</button>
-            <button class="ai-art-btn" onclick="applyAiArtStyle('comic')">Graphic Novel</button>
+
+
+        <!-- Horizontal, scrollable style slider — sits directly above the input -->
+        <div id="aiArtStyleBar" class="ai-art-style-bar" role="listbox" aria-label="Processing styles">
+            <button class="ai-art-btn primary-art" onclick="selectAiArtStyle(this,'ghibli')">Studio Ghibli</button>
+            <button class="ai-art-btn" onclick="selectAiArtStyle(this,'cyberpunk')">Cyberpunk</button>
+            <button class="ai-art-btn" onclick="selectAiArtStyle(this,'watercolor')">Watercolor</button>
+            <button class="ai-art-btn" onclick="selectAiArtStyle(this,'oilpaint')">Oil Painting</button>
+            <button class="ai-art-btn" onclick="selectAiArtStyle(this,'sketch')">Pencil Sketch</button>
+            <button class="ai-art-btn" onclick="selectAiArtStyle(this,'comic')">Graphic Novel</button>
         </div>
 
         <div class="ai-chat-input">
@@ -813,6 +818,6 @@
             });
         }
     </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a2744686fdc38e87',t:'MTc4NjA4NDY3NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 
 </html>
