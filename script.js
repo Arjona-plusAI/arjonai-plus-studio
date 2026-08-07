@@ -7178,3 +7178,26 @@ window.addEventListener('DOMContentLoaded', function () {
         updateGenDimsLabel();
     } catch (e) { /* controls are optional */ }
 });
+
+/* ============================================================================
+   ARJONA AI — HORIZONTAL STYLE SLIDER
+   Marks the tapped chip active, keeps it scrolled into view, then delegates
+   to the existing applyAiArtStyle() processing pipeline.
+   ============================================================================ */
+function selectAiArtStyle(btn, styleName) {
+    try {
+        var bar = document.getElementById('aiArtStyleBar');
+        if (bar && btn) {
+            var chips = bar.querySelectorAll('.ai-art-btn');
+            for (var i = 0; i < chips.length; i++) chips[i].classList.remove('primary-art');
+            btn.classList.add('primary-art');
+            // Keep the chosen chip visible inside the horizontal scroller.
+            if (btn.scrollIntoView) {
+                btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+    } catch (e) { /* visual only */ }
+
+    if (typeof applyAiArtStyle === 'function') applyAiArtStyle(styleName);
+}
+window.selectAiArtStyle = selectAiArtStyle;
